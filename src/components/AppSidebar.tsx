@@ -5,7 +5,8 @@ import {
   Brain,
   TrendingUp,
   Users,
-  FileText
+  FileText,
+  Music // Added the Music icon
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -21,8 +22,11 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 
+
+
 const mainItems = [
   { title: "Voice Studio", url: "/", icon: Mic },
+  { title: "Song Search", url: "/song-search", icon: Music }, // Added Song Search link
   { title: "AI Insights", url: "/insights", icon: Brain },
   { title: "Search & Discovery", url: "/search", icon: Search },
   { title: "Analytics", url: "/analytics", icon: TrendingUp },

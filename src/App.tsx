@@ -10,7 +10,7 @@ import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { AIInsights } from "@/components/AIInsights";
 import { SearchDiscovery } from "@/components/SearchDiscovery";
 import { Analytics } from "@/components/Analytics";
-import { AILab } from "@/components/AILab";
+import { SongSearch } from "@/components/SongSearch"; // Import the new component
 import NotFound from "./pages/NotFound";
 import { Card } from "@/components/ui/card";
 import { Zap } from "lucide-react";
@@ -71,15 +71,13 @@ const App = () => {
                 <main className="flex-1 p-6 overflow-auto">
                   <Routes>
                     <Route path="/" element={<VoiceRecorder recordings={recordings} setRecordings={setRecordings} />} />
+                    <Route path="/song-search" element={<SongSearch />} />
                     <Route path="/insights" element={<AIInsights />} />
                     <Route path="/search" element={<SearchDiscovery />} />
                     <Route path="/analytics" element={<Analytics />} />
                     <Route path="/recordings" element={<MyRecordings recordings={recordings} setRecordings={setRecordings} />} />
                     <Route path="/shared" element={<SharedWithMe />} />
                     <Route path="/transcripts" element={<Transcripts recordings={recordings} />} />
-                    <Route path="/lab" element={<AILab />} />
-                    <Route path="/collaborate" element={<ComingSoon title="Collaboration" />} />
-                    <Route path="/settings" element={<ComingSoon title="Settings" />} />
                     <Route path="*" element={<NotFound />} />
                   </Routes>
                 </main>
