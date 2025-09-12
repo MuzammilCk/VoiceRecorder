@@ -3,10 +3,7 @@ import {
   Search,
   FolderOpen,
   Brain,
-  Share2,
-  Settings,
   TrendingUp,
-  Sparkles,
   Users,
   FileText
 } from "lucide-react";
@@ -37,12 +34,6 @@ const workspaceItems = [
   { title: "Transcripts", url: "/transcripts", icon: FileText },
 ];
 
-const toolsItems = [
-  { title: "AI Lab", url: "/lab", icon: Sparkles },
-  { title: "Collaboration", url: "/collaborate", icon: Share2 },
-  { title: "Settings", url: "/settings", icon: Settings },
-];
-
 export function AppSidebar() {
   const { state } = useSidebar();
   const location = useLocation();
@@ -67,7 +58,7 @@ export function AppSidebar() {
             {!isCollapsed && (
               <div>
                 <h2 className="font-bold text-lg bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-                  EchoMind
+                  Voice recorder
                 </h2>
                 <p className="text-xs text-muted-foreground">Voice Intelligence</p>
               </div>
@@ -116,29 +107,6 @@ export function AppSidebar() {
             </SidebarMenu>
           </SidebarGroupContent>
         </SidebarGroup>
-
-        {/* AI Tools */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
-            {!isCollapsed ? "AI Tools" : ""}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {toolsItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-11">
-                    <NavLink to={item.url} className={getNavCls(item.url)}>
-                      <item.icon className="w-5 h-5" />
-                      {!isCollapsed && <span className="ml-3">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Pro Badge section has been removed from here */}
 
       </SidebarContent>
     </Sidebar>

@@ -6,6 +6,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { LanguageSelector } from './LanguageSelector';
 import { Recording } from '@/App'; // Import the shared Recording type
+import { Input } from '@/components/ui/input'; // Import the Input component
 
 // Add this interface to your component file to make TypeScript happy with the Web Speech API
 declare global {
@@ -31,6 +32,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
   const [audioLevels, setAudioLevels] = useState<number[]>(new Array(40).fill(0));
   const [transcript, setTranscript] = useState('');
   const [language, setLanguage] = useState('en-US');
+  const [recordingName, setRecordingName] = useState('');
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -38,6 +40,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>();
   const recordingIntervalRef = useRef<NodeJS.Timeout>();
+  const recordingTimeRef = useRef(0);
+  const transcriptRef = useRef('');
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const recognitionRef = useRef<any>(null);
 
@@ -55,6 +59,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
 
   const startRecording = async () => {
     setTranscript('');
+    transcriptRef.current = '';
     setCurrentRecording(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
@@ -77,23 +82,39 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
         if (event.data.size > 0) chunks.push(event.data);
       };
 
-      let finalTranscriptOnStop = '';
       recognitionRef.current?.stop();
 
       mediaRecorder.onstop = () => {
         const blob = new Blob(chunks, { type: 'audio/webm' });
+        const finalTranscriptToSave = transcriptRef.current.trim();
+        const timestamp = new Date();
+        
+        let name = recordingName.trim();
+        if (!name) {
+            // Create a default timestamp-based name if input is empty
+            const year = timestamp.getFullYear();
+            const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+            const day = String(timestamp.getDate()).padStart(2, '0');
+            const hours = String(timestamp.getHours()).padStart(2, '0');
+            const minutes = String(timestamp.getMinutes()).padStart(2, '0');
+            const seconds = String(timestamp.getSeconds()).padStart(2, '0');
+            name = `Recording ${year}-${month}-${day} ${hours}.${minutes}.${seconds}`;
+        }
+
         const newRecording: Recording = {
           id: Date.now().toString(),
-          name: `Recording ${recordings.length + 1}`,
+          name: name,
           blob,
-          duration: recordingTime,
-          timestamp: new Date(),
-          transcript: finalTranscriptOnStop,
+          duration: recordingTimeRef.current,
+          timestamp: timestamp,
+          transcript: finalTranscriptToSave,
         };
         setRecordings(prev => [newRecording, ...prev]);
         setCurrentRecording(newRecording);
-        setTranscript(finalTranscriptOnStop);
-        toast({ title: "Recording Complete", description: `Saved as "${newRecording.name}"` });
+        setTranscript(finalTranscriptToSave);
+        toast({ title: "Recording Saved", description: `Saved as "${newRecording.name}"` });
+
+        setRecordingName(''); // Reset input field for the next recording
       };
 
       const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
@@ -118,15 +139,23 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
             interimTranscript += event.results[i][0].transcript;
           }
         }
-        finalTranscriptOnStop = finalTranscript;
-        setTranscript(finalTranscript + interimTranscript);
+        const fullTranscript = finalTranscript + interimTranscript;
+        transcriptRef.current = fullTranscript;
+        setTranscript(fullTranscript);
       };
       
       recognition.start();
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
-      recordingIntervalRef.current = setInterval(() => setRecordingTime(prev => prev + 1), 1000);
+      recordingTimeRef.current = 0;
+      recordingIntervalRef.current = setInterval(() => {
+        setRecordingTime(prev => {
+            const newTime = prev + 1;
+            recordingTimeRef.current = newTime;
+            return newTime;
+        });
+      }, 1000);
 
     } catch (error) {
       toast({ title: "Recording Error", description: "Could not access microphone.", variant: "destructive" });
@@ -199,7 +228,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
         <div className="text-center space-y-6">
           <div className="space-y-2">
             <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-              EchoMind
+              Voice recorder
             </h1>
             <p className="text-muted-foreground">Professional Voice Intelligence</p>
           </div>
@@ -210,6 +239,16 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
           </div>
           <div className="text-2xl font-mono text-primary">
             {formatTime(recordingTime)}
+          </div>
+          <div className="w-full max-w-sm mx-auto space-y-4">
+            <Input
+              type="text"
+              placeholder="Name your recording..."
+              value={recordingName}
+              onChange={(e) => setRecordingName(e.target.value)}
+              disabled={isRecording}
+              className="bg-background/50 text-center"
+            />
           </div>
           <div className="flex justify-center items-center gap-4">
             <LanguageSelector language={language} setLanguage={setLanguage} isRecording={isRecording} />

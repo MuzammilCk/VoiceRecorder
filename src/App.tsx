@@ -65,7 +65,7 @@ const App = () => {
                     <div className="w-6 h-6 bg-gradient-to-r from-primary to-primary-glow rounded flex items-center justify-center">
                       <div className="w-3 h-3 bg-primary-foreground rounded-full" />
                     </div>
-                    <span className="font-semibold text-lg">EchoMind</span>
+                    <span className="font-semibold text-lg">Voice recorder</span>
                   </div>
                 </header>
                 <main className="flex-1 p-6 overflow-auto">
