@@ -30,22 +30,6 @@ export interface Recording {
 
 const queryClient = new QueryClient();
 
-const ComingSoon = ({ title }: { title: string }) => (
-    <div className="flex items-center justify-center h-full">
-        <Card className="glass p-12 text-center">
-            <div className="space-y-4">
-                <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
-                    <Zap className="w-8 h-8 text-primary" />
-                </div>
-                <h2 className="text-2xl font-semibold">{title}</h2>
-                <p className="text-muted-foreground max-w-md mx-auto">
-                    This feature is currently under development and will be available soon.
-                </p>
-            </div>
-        </Card>
-    </div>
-);
-
 const App = () => {
   const [recordings, setRecordings] = useState<Recording[]>([]);
 
@@ -72,8 +56,8 @@ const App = () => {
                   <Routes>
                     <Route path="/" element={<VoiceRecorder recordings={recordings} setRecordings={setRecordings} />} />
                     <Route path="/song-search" element={<SongSearch />} />
-                    <Route path="/insights" element={<AIInsights />} />
-                    <Route path="/search" element={<SearchDiscovery />} />
+                    <Route path="/insights" element={<AIInsights recordings={recordings} />} />
+                    <Route path="/search" element={<SearchDiscovery recordings={recordings} />} />
                     <Route path="/analytics" element={<Analytics />} />
                     <Route path="/recordings" element={<MyRecordings recordings={recordings} setRecordings={setRecordings} />} />
                     <Route path="/shared" element={<SharedWithMe />} />

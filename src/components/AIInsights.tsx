@@ -1,48 +1,39 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Progress } from '@/components/ui/progress';
 import {
   Brain,
-  TrendingUp,
-  MessageSquare,
   Clock,
   Target,
   Lightbulb,
   Users,
-  Zap,
   Mic
 } from 'lucide-react';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Recording } from '@/App';
+import { Insight, generateInsights } from '@/lib/ai';
 
-// Real insights will be loaded from backend
-const mockTranscripts = [
-  {
-    id: 'transcript1',
-    title: 'Q3 Project Kick-off Meeting',
-    duration: '15:32',
-    participants: 4,
-    sentiment: 'positive',
-    keyPoints: [
-      'Finalize the UI/UX design by next Friday.',
-      'The initial user testing phase will begin in two weeks.',
-      'Marketing team to prepare a pre-launch campaign.',
-    ],
-    actionItems: [
-      { text: 'John to share the final design mockups.', assignedTo: 'John' },
-      { text: 'Sarah to set up the user testing sessions.', assignedTo: 'Sarah' },
-    ],
-  },
-];
+interface AIInsightsProps {
+  recordings: Recording[];
+}
 
-export const AIInsights = () => {
-  const getSentimentColor = (sentiment: string) => {
-    switch (sentiment) {
-      case 'positive': return 'text-green-500';
-      case 'negative': return 'text-red-500';
-      default: return 'text-yellow-500';
+export const AIInsights: React.FC<AIInsightsProps> = ({ recordings }) => {
+  const [selectedRecordingId, setSelectedRecordingId] = useState<string | null>(recordings[0]?.id || null);
+
+  const selectedInsight = useMemo<Insight | null>(() => {
+    const recording = recordings.find(r => r.id === selectedRecordingId);
+    if (recording) {
+      return generateInsights(recording);
     }
-  };
+    return null;
+  }, [selectedRecordingId, recordings]);
 
   const getSentimentBadgeVariant = (sentiment: string) => {
     switch (sentiment) {
@@ -51,19 +42,25 @@ export const AIInsights = () => {
       default: return 'secondary';
     }
   };
+  
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins}m ${secs}s`;
+  };
 
-  if (mockTranscripts.length === 0) {
+  if (recordings.length === 0) {
     return (
         <Card className="glass p-12 text-center">
             <div className="space-y-4">
                 <div className="w-16 h-16 bg-primary/20 rounded-full flex items-center justify-center mx-auto">
                     <Brain className="w-8 h-8 text-primary" />
                 </div>
-                <h2 className="text-2xl font-semibold">No Recordings Analyzed Yet</h2>
+                <h2 className="text-2xl font-semibold">No Recordings to Analyze</h2>
                 <p className="text-muted-foreground max-w-md mx-auto">
-                    Start recording to see AI-powered insights including key points, action items, sentiment analysis, and speaker analytics.
+                    Record something in the Voice Studio to generate AI-powered insights.
                 </p>
-                <Button className="mt-4">
+                <Button className="mt-4" onClick={() => window.location.href = '/'}>
                     <Mic className="w-4 h-4 mr-2" />
                     Go to Voice Studio
                 </Button>
@@ -71,8 +68,6 @@ export const AIInsights = () => {
         </Card>
     );
   }
-
-  const insight = mockTranscripts[0];
 
   return (
     <div className="space-y-6">
@@ -82,77 +77,61 @@ export const AIInsights = () => {
           AI Insights
         </h1>
         <p className="text-muted-foreground">
-          Discover patterns, extract key insights, and understand the emotional tone of your conversations
+          Select a recording to analyze its key points, action items, and sentiment.
         </p>
       </div>
 
       <Card className="glass p-6">
-        <div className="flex justify-between items-start mb-4">
-          <div>
-            <h2 className="text-xl font-semibold">{insight.title}</h2>
-            <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
-              <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {insight.duration}</span>
-              <span className="flex items-center gap-1.5"><Users className="w-4 h-4" /> {insight.participants} Participants</span>
-            </div>
-          </div>
-          <Badge variant={getSentimentBadgeVariant(insight.sentiment)} className="capitalize">
-            {insight.sentiment}
-          </Badge>
+        <div className="mb-6">
+            <Select onValueChange={setSelectedRecordingId} defaultValue={selectedRecordingId || undefined}>
+              <SelectTrigger className="w-full md:w-1/2">
+                <SelectValue placeholder="Select a recording to analyze..." />
+              </SelectTrigger>
+              <SelectContent>
+                {recordings.map((rec) => (
+                  <SelectItem key={rec.id} value={rec.id}>{rec.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {/* Left Column: Key Points & Action Items */}
-          <div className="space-y-6">
-            <Card className="bg-secondary/30">
-              <div className="p-4">
+        {selectedInsight ? (
+          <div>
+            <div className="flex justify-between items-start mb-4">
+              <div>
+                <h2 className="text-xl font-semibold">{selectedInsight.title}</h2>
+                <div className="flex items-center gap-4 text-sm text-muted-foreground mt-1">
+                  <span className="flex items-center gap-1.5"><Clock className="w-4 h-4" /> {formatTime(selectedInsight.duration)}</span>
+                  <span className="flex items-center gap-1.5"><Users className="w-4 h-4" /> {selectedInsight.participants} Participant(s)</span>
+                </div>
+              </div>
+              <Badge variant={getSentimentBadgeVariant(selectedInsight.sentiment)} className="capitalize">
+                {selectedInsight.sentiment}
+              </Badge>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <Card className="bg-secondary/30 p-4">
                 <h3 className="font-semibold flex items-center gap-2 mb-3"><Lightbulb className="w-5 h-5 text-primary" />Key Points</h3>
                 <ul className="space-y-2 list-disc pl-5 text-sm">
-                  {insight.keyPoints.map((point, index) => <li key={index}>{point}</li>)}
+                  {selectedInsight.keyPoints.map((point, index) => <li key={index}>{point}</li>)}
                 </ul>
-              </div>
-            </Card>
-            <Card className="bg-secondary/30">
-                <div className="p-4">
-                    <h3 className="font-semibold flex items-center gap-2 mb-3"><Target className="w-5 h-5 text-primary" />Action Items</h3>
-                    <ul className="space-y-2 list-disc pl-5 text-sm">
-                        {insight.actionItems.map((item, index) => (
-                            <li key={index}>
-                                {item.text} <Badge variant="outline" className="ml-2 text-xs">{item.assignedTo}</Badge>
-                            </li>
-                        ))}
-                    </ul>
-                </div>
-            </Card>
+              </Card>
+              <Card className="bg-secondary/30 p-4">
+                  <h3 className="font-semibold flex items-center gap-2 mb-3"><Target className="w-5 h-5 text-primary" />Action Items</h3>
+                  <ul className="space-y-2 list-disc pl-5 text-sm">
+                      {selectedInsight.actionItems.map((item, index) => (
+                          <li key={index}>{item}</li>
+                      ))}
+                  </ul>
+              </Card>
+            </div>
           </div>
-
-          {/* Right Column: Sentiment & Advanced */}
-          <div className="space-y-6">
-            <Card className="bg-secondary/30">
-                <div className="p-4">
-                    <h3 className="font-semibold flex items-center gap-2 mb-3"><MessageSquare className="w-5 h-5 text-primary" />Sentiment Trend</h3>
-                    <div className="h-24 bg-waveform-bg rounded-lg flex items-end p-2">
-                        {/* Placeholder for a sentiment chart */}
-                        <div className="w-full text-center text-muted-foreground text-sm">Sentiment chart would be displayed here.</div>
-                    </div>
-                </div>
-            </Card>
-            <Card className="bg-secondary/30">
-                <div className="p-4">
-                    <h3 className="font-semibold flex items-center gap-2 mb-3"><Zap className="w-5 h-5 text-primary" />Advanced Analysis</h3>
-                    <div className="space-y-3">
-                        <div className="flex justify-between items-center text-sm">
-                            <span>Topic Detection</span>
-                            <Badge variant="secondary">UI/UX</Badge>
-                        </div>
-                        <div className="flex justify-between items-center text-sm">
-                            <span>Question Detection</span>
-                            <span className="font-medium">3 Questions Asked</span>
-                        </div>
-                    </div>
-                </div>
-            </Card>
+        ) : (
+          <div className="text-center py-12 text-muted-foreground">
+            <p>Please select a recording to view its insights.</p>
           </div>
-        </div>
+        )}
       </Card>
     </div>
   );
