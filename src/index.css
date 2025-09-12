@@ -7,29 +7,29 @@
 @layer base {
   :root {
     /* Core Background Colors */
-    --background: 220 27% 6%;
-    --foreground: 210 40% 98%;
+    --background: 0 0% 100%;
+    --foreground: 240 10% 3.9%;
 
     /* Surface Colors */
-    --card: 220 27% 8%;
-    --card-foreground: 210 40% 98%;
+    --card: 0 0% 100%;
+    --card-foreground: 240 10% 3.9%;
 
-    --popover: 220 27% 8%;
-    --popover-foreground: 210 40% 98%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 240 10% 3.9%;
 
-    /* Brand Colors - Deep Ocean Blues */
-    --primary: 217 91% 60%;
-    --primary-foreground: 220 27% 6%;
-    --primary-glow: 217 91% 70%;
+    /* Brand Colors - Red & White */
+    --primary: 0 84% 60%;
+    --primary-foreground: 210 40% 98%;
+    --primary-glow: 0 84% 70%;
 
-    --secondary: 220 27% 12%;
-    --secondary-foreground: 210 40% 98%;
+    --secondary: 240 4.8% 95.9%;
+    --secondary-foreground: 240 5.9% 10%;
 
-    --muted: 220 27% 10%;
-    --muted-foreground: 215 20% 65%;
+    --muted: 240 4.8% 95.9%;
+    --muted-foreground: 240 3.8% 46.1%;
 
-    --accent: 260 100% 65%;
-    --accent-foreground: 220 27% 6%;
+    --accent: 240 4.8% 95.9%;
+    --accent-foreground: 240 5.9% 10%;
 
     /* Status Colors */
     --destructive: 0 84% 60%;
@@ -39,25 +39,25 @@
     --warning: 38 92% 50%;
 
     /* Interactive Elements */
-    --border: 220 27% 15%;
-    --input: 220 27% 12%;
-    --ring: 217 91% 60%;
+    --border: 240 5.9% 90%;
+    --input: 240 5.9% 90%;
+    --ring: 0 84% 60%;
 
     /* Audio-specific Colors */
-    --waveform: 217 91% 60%;
-    --waveform-bg: 220 27% 10%;
+    --waveform: 0 84% 60%;
+    --waveform-bg: 0 0% 95%;
     --recording: 0 84% 60%;
     --playing: 142 76% 36%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 70%));
-    --gradient-accent: linear-gradient(135deg, hsl(260 100% 65%), hsl(280 100% 70%));
-    --gradient-surface: linear-gradient(135deg, hsl(220 27% 8%), hsl(220 27% 12%));
-    --gradient-subtle: linear-gradient(180deg, hsl(220 27% 6%), hsl(220 27% 8%));
+    --gradient-primary: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 70%));
+    --gradient-accent: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 70%));
+    --gradient-surface: linear-gradient(135deg, hsl(0 0% 100%), hsl(240 4.8% 95.9%));
+    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(240 4.8% 95.9%));
 
     /* Shadows & Effects */
-    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.3);
-    --shadow-card: 0 8px 32px hsl(220 27% 0% / 0.5);
+    --shadow-glow: 0 0 40px hsl(0 84% 60% / 0.3);
+    --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.1);
     --shadow-recording: 0 0 30px hsl(0 84% 60% / 0.4);
 
     /* Animations */
