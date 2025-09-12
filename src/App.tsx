@@ -1,3 +1,4 @@
+import React, { useState } from 'react';
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
@@ -13,6 +14,19 @@ import { AILab } from "@/components/AILab";
 import NotFound from "./pages/NotFound";
 import { Card } from "@/components/ui/card";
 import { Zap } from "lucide-react";
+import MyRecordings from './components/MyRecordings';
+import SharedWithMe from './components/SharedWithMe';
+import Transcripts from './components/Transcripts';
+
+// Define the Recording type to be shared
+export interface Recording {
+  id: string;
+  name: string;
+  blob: Blob;
+  duration: number;
+  timestamp: Date;
+  transcript?: string;
+}
 
 const queryClient = new QueryClient();
 
@@ -32,47 +46,50 @@ const ComingSoon = ({ title }: { title: string }) => (
     </div>
 );
 
+const App = () => {
+  const [recordings, setRecordings] = useState<Recording[]>([]);
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <SidebarProvider>
-          <div className="flex min-h-screen w-full bg-background">
-            <AppSidebar />
-            <div className="flex-1 flex flex-col">
-              <header className="h-14 flex items-center border-b border-border/50 px-6 bg-card/50 backdrop-blur-sm">
-                <SidebarTrigger className="mr-4" />
-                <div className="flex items-center gap-3">
-                  <div className="w-6 h-6 bg-gradient-to-r from-primary to-primary-glow rounded flex items-center justify-center">
-                    <div className="w-3 h-3 bg-primary-foreground rounded-full" />
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <SidebarProvider>
+            <div className="flex min-h-screen w-full bg-background">
+              <AppSidebar />
+              <div className="flex-1 flex flex-col">
+                <header className="h-14 flex items-center border-b border-border/50 px-6 bg-card/50 backdrop-blur-sm">
+                  <SidebarTrigger className="mr-4" />
+                  <div className="flex items-center gap-3">
+                    <div className="w-6 h-6 bg-gradient-to-r from-primary to-primary-glow rounded flex items-center justify-center">
+                      <div className="w-3 h-3 bg-primary-foreground rounded-full" />
+                    </div>
+                    <span className="font-semibold text-lg">EchoMind</span>
                   </div>
-                  <span className="font-semibold text-lg">EchoMind</span>
-                </div>
-              </header>
-              <main className="flex-1 p-6 overflow-auto">
-                <Routes>
-                  <Route path="/" element={<VoiceRecorder />} />
-                  <Route path="/insights" element={<AIInsights />} />
-                  <Route path="/search" element={<SearchDiscovery />} />
-                  <Route path="/analytics" element={<Analytics />} />
-                  <Route path="/recordings" element={<ComingSoon title="My Recordings" />} />
-                  <Route path="/shared" element={<ComingSoon title="Shared Recordings" />} />
-                  <Route path="/transcripts" element={<ComingSoon title="Transcripts" />} />
-                  <Route path="/lab" element={<AILab />} />
-                  <Route path="/collaborate" element={<ComingSoon title="Collaboration" />} />
-                  <Route path="/settings" element={<ComingSoon title="Settings" />} />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </main>
+                </header>
+                <main className="flex-1 p-6 overflow-auto">
+                  <Routes>
+                    <Route path="/" element={<VoiceRecorder recordings={recordings} setRecordings={setRecordings} />} />
+                    <Route path="/insights" element={<AIInsights />} />
+                    <Route path="/search" element={<SearchDiscovery />} />
+                    <Route path="/analytics" element={<Analytics />} />
+                    <Route path="/recordings" element={<MyRecordings recordings={recordings} setRecordings={setRecordings} />} />
+                    <Route path="/shared" element={<SharedWithMe />} />
+                    <Route path="/transcripts" element={<Transcripts recordings={recordings} />} />
+                    <Route path="/lab" element={<AILab />} />
+                    <Route path="/collaborate" element={<ComingSoon title="Collaboration" />} />
+                    <Route path="/settings" element={<ComingSoon title="Settings" />} />
+                    <Route path="*" element={<NotFound />} />
+                  </Routes>
+                </main>
+              </div>
             </div>
-          </div>
-        </SidebarProvider>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+          </SidebarProvider>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;
