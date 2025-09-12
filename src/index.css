@@ -1,0 +1,118 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* EchoMind Design System - Professional Voice Intelligence Platform */
+
+@layer base {
+  :root {
+    /* Core Background Colors */
+    --background: 220 27% 6%;
+    --foreground: 210 40% 98%;
+
+    /* Surface Colors */
+    --card: 220 27% 8%;
+    --card-foreground: 210 40% 98%;
+
+    --popover: 220 27% 8%;
+    --popover-foreground: 210 40% 98%;
+
+    /* Brand Colors - Deep Ocean Blues */
+    --primary: 217 91% 60%;
+    --primary-foreground: 220 27% 6%;
+    --primary-glow: 217 91% 70%;
+
+    --secondary: 220 27% 12%;
+    --secondary-foreground: 210 40% 98%;
+
+    --muted: 220 27% 10%;
+    --muted-foreground: 215 20% 65%;
+
+    --accent: 260 100% 65%;
+    --accent-foreground: 220 27% 6%;
+
+    /* Status Colors */
+    --destructive: 0 84% 60%;
+    --destructive-foreground: 210 40% 98%;
+
+    --success: 142 76% 36%;
+    --warning: 38 92% 50%;
+
+    /* Interactive Elements */
+    --border: 220 27% 15%;
+    --input: 220 27% 12%;
+    --ring: 217 91% 60%;
+
+    /* Audio-specific Colors */
+    --waveform: 217 91% 60%;
+    --waveform-bg: 220 27% 10%;
+    --recording: 0 84% 60%;
+    --playing: 142 76% 36%;
+
+    /* Gradients */
+    --gradient-primary: linear-gradient(135deg, hsl(217 91% 60%), hsl(217 91% 70%));
+    --gradient-accent: linear-gradient(135deg, hsl(260 100% 65%), hsl(280 100% 70%));
+    --gradient-surface: linear-gradient(135deg, hsl(220 27% 8%), hsl(220 27% 12%));
+    --gradient-subtle: linear-gradient(180deg, hsl(220 27% 6%), hsl(220 27% 8%));
+
+    /* Shadows & Effects */
+    --shadow-glow: 0 0 40px hsl(217 91% 60% / 0.3);
+    --shadow-card: 0 8px 32px hsl(220 27% 0% / 0.5);
+    --shadow-recording: 0 0 30px hsl(0 84% 60% / 0.4);
+
+    /* Animations */
+    --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    --transition-bounce: all 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+
+    --radius: 0.75rem;
+  }
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
+
+  body {
+    @apply bg-background text-foreground font-sans;
+    background: var(--gradient-subtle);
+  }
+}
+
+@layer components {
+  /* Recording Button Styles */
+  .recording-pulse {
+    animation: recording-pulse 2s infinite;
+  }
+
+  @keyframes recording-pulse {
+    0%, 100% { box-shadow: 0 0 0 0 hsl(var(--recording) / 0.7); }
+    50% { box-shadow: 0 0 0 20px hsl(var(--recording) / 0); }
+  }
+
+  /* Waveform Animation */
+  .waveform-bar {
+    animation: waveform-dance 0.5s ease-in-out infinite alternate;
+  }
+
+  @keyframes waveform-dance {
+    from { transform: scaleY(0.3); }
+    to { transform: scaleY(1); }
+  }
+
+  /* Glow Effects */
+  .glow-primary {
+    box-shadow: var(--shadow-glow);
+  }
+
+  .glow-recording {
+    box-shadow: var(--shadow-recording);
+  }
+
+  /* Glass Effect */
+  .glass {
+    backdrop-filter: blur(16px) saturate(180%);
+    background: hsl(var(--card) / 0.8);
+    border: 1px solid hsl(var(--border) / 0.5);
+  }
+}
