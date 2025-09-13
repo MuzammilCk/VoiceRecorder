@@ -5,27 +5,88 @@ import { Button } from '@/components/ui/button';
 import { Progress } from '@/components/ui/progress';
 import {
   TrendingUp,
-  TrendingDown,
-  Users,
-  Clock,
   Mic,
-  Brain,
-  Calendar,
+  Clock,
   Download,
-  Share,
   Filter
 } from 'lucide-react';
+import { Recording } from '@/App';
 
-// Real analytics data will be loaded from backend
-const analyticsData = {
-  totalRecordings: 1,
-  totalDuration: 932, // in seconds
-  avgDuration: 932,
-  sentiment: { positive: 80, neutral: 15, negative: 5 },
-  keywords: ['UI/UX', 'Marketing', 'User Testing'],
+interface AnalyticsProps {
+  recordings: Recording[];
+}
+
+// Helper function to get sentiment from a transcript
+const getSentiment = (transcript: string): 'positive' | 'neutral' | 'negative' => {
+  const positiveWords = ['great', 'excellent', 'good', 'awesome', 'love', 'pleasure'];
+  const negativeWords = ['problem', 'issue', 'bad', 'terrible', 'hate', 'difficult'];
+  const words = transcript.toLowerCase().split(/\s+/);
+  let score = 0;
+  words.forEach(word => {
+    if (positiveWords.includes(word)) score++;
+    if (negativeWords.includes(word)) score--;
+  });
+  if (score > 0) return 'positive';
+  if (score < 0) return 'negative';
+  return 'neutral';
 };
 
-export const Analytics = () => {
+// Helper function to extract keywords
+const extractKeywords = (transcripts: string[]): string[] => {
+    const wordCount: { [key: string]: number } = {};
+    const stopWords = new Set(['a', 'an', 'the', 'is', 'are', 'in', 'on', 'at', 'and', 'or', 'but']);
+  
+    transcripts.forEach(transcript => {
+      const words = transcript.toLowerCase().replace(/[.,!?]/g, '').split(/\s+/);
+      words.forEach(word => {
+        if (word && !stopWords.has(word)) {
+          wordCount[word] = (wordCount[word] || 0) + 1;
+        }
+      });
+    });
+  
+    return Object.entries(wordCount)
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 5)
+      .map(entry => entry[0]);
+};
+
+
+export const Analytics: React.FC<AnalyticsProps> = ({ recordings }) => {
+  const analyticsData = React.useMemo(() => {
+    if (recordings.length === 0) {
+      return null;
+    }
+
+    const totalRecordings = recordings.length;
+    const totalDuration = recordings.reduce((acc, rec) => acc + rec.duration, 0);
+    const avgDuration = totalDuration / totalRecordings;
+
+    const sentimentCounts = { positive: 0, neutral: 0, negative: 0 };
+    const transcripts = recordings.map(rec => rec.transcript || '');
+
+    transcripts.forEach(transcript => {
+      const sentiment = getSentiment(transcript);
+      sentimentCounts[sentiment]++;
+    });
+    
+    const totalSentiments = sentimentCounts.positive + sentimentCounts.neutral + sentimentCounts.negative;
+    
+    const sentimentPercentages = {
+        positive: totalSentiments > 0 ? (sentimentCounts.positive / totalSentiments) * 100 : 0,
+        neutral: totalSentiments > 0 ? (sentimentCounts.neutral / totalSentiments) * 100 : 0,
+        negative: totalSentiments > 0 ? (sentimentCounts.negative / totalSentiments) * 100 : 0,
+    };
+
+    return {
+      totalRecordings,
+      totalDuration,
+      avgDuration,
+      sentiment: sentimentPercentages,
+      keywords: extractKeywords(transcripts),
+    };
+  }, [recordings]);
+
 
   if (!analyticsData) {
     return (
@@ -38,7 +99,7 @@ export const Analytics = () => {
                 <p className="text-muted-foreground max-w-md mx-auto">
                     Start recording to see detailed analytics about your voice recordings, AI insights performance, and usage patterns.
                 </p>
-                <Button className="mt-4">
+                <Button className="mt-4" onClick={() => window.location.href = '/'}>
                     <Mic className="w-4 h-4 mr-2" />
                     Start Recording
                 </Button>
@@ -86,7 +147,7 @@ export const Analytics = () => {
                 <h3 className="text-muted-foreground">Avg. Duration</h3>
                 <Clock className="w-5 h-5 text-primary" />
             </div>
-            <p className="text-3xl font-bold mt-2">{Math.floor(analyticsData.avgDuration / 60)}m {analyticsData.avgDuration % 60}s</p>
+            <p className="text-3xl font-bold mt-2">{Math.floor(analyticsData.avgDuration / 60)}m {Math.round(analyticsData.avgDuration % 60)}s</p>
         </Card>
       </div>
 
@@ -98,21 +159,21 @@ export const Analytics = () => {
                 <div>
                     <div className="flex justify-between mb-1">
                         <span className="text-sm">Positive</span>
-                        <span className="text-sm">{analyticsData.sentiment.positive}%</span>
+                        <span className="text-sm">{analyticsData.sentiment.positive.toFixed(0)}%</span>
                     </div>
                     <Progress value={analyticsData.sentiment.positive} className="h-2" />
                 </div>
                 <div>
                     <div className="flex justify-between mb-1">
                         <span className="text-sm">Neutral</span>
-                        <span className="text-sm">{analyticsData.sentiment.neutral}%</span>
+                        <span className="text-sm">{analyticsData.sentiment.neutral.toFixed(0)}%</span>
                     </div>
                     <Progress value={analyticsData.sentiment.neutral} className="h-2" />
                 </div>
                 <div>
                     <div className="flex justify-between mb-1">
                         <span className="text-sm">Negative</span>
-                        <span className="text-sm">{analyticsData.sentiment.negative}%</span>
+                        <span className="text-sm">{analyticsData.sentiment.negative.toFixed(0)}%</span>
                     </div>
                     <Progress value={analyticsData.sentiment.negative} className="h-2" />
                 </div>

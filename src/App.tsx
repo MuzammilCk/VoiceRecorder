@@ -58,7 +58,7 @@ const App = () => {
                     <Route path="/song-search" element={<SongSearch />} />
                     <Route path="/insights" element={<AIInsights recordings={recordings} />} />
                     <Route path="/search" element={<SearchDiscovery recordings={recordings} />} />
-                    <Route path="/analytics" element={<Analytics />} />
+                    <Route path="/analytics" element={<Analytics recordings={recordings} />} />
                     <Route path="/recordings" element={<MyRecordings recordings={recordings} setRecordings={setRecordings} />} />
                     <Route path="/shared" element={<SharedWithMe />} />
                     <Route path="/transcripts" element={<Transcripts recordings={recordings} />} />
