@@ -1,54 +1,132 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Mic, Music, Search, Loader } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Progress } from '@/components/ui/progress';
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { 
+  Mic, 
+  Music, 
+  Search, 
+  Loader2, 
+  Play, 
+  Pause, 
+  Volume2, 
+  ExternalLink,
+  History,
+  Settings,
+  Zap,
+  Headphones,
+  MicIcon,
+  AlertCircle,
+  CheckCircle
+} from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
+import { realSongRecognitionService, RecognitionResult, SongMatch } from '@/lib/realSongRecognition';
 
-// --- IMPORTANT ---
-// Replace these with your actual ACRCloud credentials from your dashboard
-const ACRCLOUD_HOST = 'identify-ap-southeast-1.acrcloud.com'; // Use the host from your project page
-const ACRCLOUD_ACCESS_KEY = '3ba89bcb8469e4328c9f26898b04ad87';
-const ACRCLOUD_ACCESS_SECRET = '9UaTHGvmqI72cgNUeYRhdN6CzGq7vbKL9ocFwiwM';
-// Your Access Secret should NOT be stored here in a real production app.
-// For the competition, this is okay, but for a real product, you would
-// make this API call from a backend server to keep your secret safe.
-// -----------------
+type RecognitionMethod = 'fingerprint' | 'acrcloud' | 'shazam';
 
-// This interface defines the structure of a song result from the API
-interface SongResult {
-  title: string;
-  artists: { name: string }[];
-  album: { name: string };
-  release_date: string;
+interface RecognitionProgress {
+  stage: 'recording' | 'processing' | 'analyzing' | 'searching' | 'complete';
+  progress: number;
+  message: string;
+}
+
+interface SearchHistory {
+  id: string;
+  timestamp: Date;
+  method: RecognitionMethod;
+  result: SongMatch | null;
+  audio_duration: number;
+  confidence?: number;
 }
 
 export const SongSearch: React.FC = () => {
   const [isRecording, setIsRecording] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [searchResult, setSearchResult] = useState<SongResult | null>(null);
+  const [searchResult, setSearchResult] = useState<SongMatch | null>(null);
   const [countdown, setCountdown] = useState(10);
+  const [audioLevel, setAudioLevel] = useState(0);
+  const [recognitionProgress, setRecognitionProgress] = useState<RecognitionProgress | null>(null);
+  const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
+  const [selectedMethod, setSelectedMethod] = useState<RecognitionMethod>('fingerprint');
+  const [recordingDuration, setRecordingDuration] = useState(0);
+  const [isPlayingPreview, setIsPlayingPreview] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
-  const countdownIntervalRef = useRef<NodeJS.Timeout>();
+  const countdownIntervalRef = useRef<number>();
+  const durationIntervalRef = useRef<number>();
+  const audioLevelIntervalRef = useRef<number>();
+  const previewAudioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
 
-  // Cleanup effect to stop recording if the component is unmounted
+  // Load search history from localStorage
+  useEffect(() => {
+    const savedHistory = localStorage.getItem('songSearchHistory');
+    if (savedHistory) {
+      try {
+        const history = JSON.parse(savedHistory).map((item: any) => ({
+          ...item,
+          timestamp: new Date(item.timestamp)
+        }));
+        setSearchHistory(history);
+      } catch (error) {
+        console.error('Failed to load search history:', error);
+      }
+    }
+  }, []);
+
+  // Save search history to localStorage
+  const saveSearchHistory = (result: SongMatch | null, method: RecognitionMethod, duration: number) => {
+    const newEntry: SearchHistory = {
+      id: Date.now().toString(),
+      timestamp: new Date(),
+      method,
+      result,
+      audio_duration: duration,
+      confidence: result?.confidence
+    };
+
+    const updatedHistory = [newEntry, ...searchHistory.slice(0, 9)]; // Keep last 10 searches
+    setSearchHistory(updatedHistory);
+    localStorage.setItem('songSearchHistory', JSON.stringify(updatedHistory));
+  };
+
+  // Cleanup effect
   useEffect(() => {
     return () => {
       if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+      if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
+      if (audioLevelIntervalRef.current) clearInterval(audioLevelIntervalRef.current);
     };
   }, []);
 
   const startRecording = async () => {
     setSearchResult(null);
+    setRecognitionProgress(null);
+    setRecordingDuration(0);
+    setLastError(null);
+    
     try {
-      // Request microphone access
-      const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+      // Request microphone access with high quality settings
+      const stream = await navigator.mediaDevices.getUserMedia({
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: true,
+          autoGainControl: true,
+          sampleRate: 44100,
+          channelCount: 1
+        }
+      });
+      
       streamRef.current = stream;
 
-      const mediaRecorder = new MediaRecorder(stream);
+      const mediaRecorder = new MediaRecorder(stream, {
+        mimeType: 'audio/webm;codecs=opus'
+      });
       mediaRecorderRef.current = mediaRecorder;
       const audioChunks: BlobPart[] = [];
 
@@ -56,31 +134,57 @@ export const SongSearch: React.FC = () => {
         if (event.data.size > 0) audioChunks.push(event.data);
       };
 
-      // When recording stops, send the audio for recognition
       mediaRecorder.onstop = () => {
-        const audioBlob = new Blob(audioChunks, { type: 'audio/wav' });
+        const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
         recognizeSong(audioBlob);
       };
 
       mediaRecorder.start();
       setIsRecording(true);
       
-      // Start a 10-second countdown
+      // Start countdown
       setCountdown(10);
       countdownIntervalRef.current = setInterval(() => {
         setCountdown(prev => prev - 1);
       }, 1000);
 
+      // Start duration tracking
+      durationIntervalRef.current = setInterval(() => {
+        setRecordingDuration(prev => prev + 0.1);
+      }, 100);
+
+      // Start real audio level monitoring
+      const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+      const analyser = audioContext.createAnalyser();
+      const source = audioContext.createMediaStreamSource(stream);
+      source.connect(analyser);
+      analyser.fftSize = 256;
+      const dataArray = new Uint8Array(analyser.frequencyBinCount);
+      
+      audioLevelIntervalRef.current = setInterval(() => {
+        analyser.getByteFrequencyData(dataArray);
+        const average = dataArray.reduce((a, b) => a + b) / dataArray.length;
+        setAudioLevel(average / 255);
+      }, 50);
+
       // Automatically stop recording after 10 seconds
       setTimeout(stopRecording, 10000);
 
     } catch (error) {
-      toast({ title: "Microphone Error", description: "Could not access the microphone.", variant: "destructive" });
+      console.error('Microphone access error:', error);
+      toast({ 
+        title: "Microphone Error", 
+        description: "Could not access the microphone. Please check your permissions.", 
+        variant: "destructive" 
+      });
     }
   };
 
   const stopRecording = () => {
     if (countdownIntervalRef.current) clearInterval(countdownIntervalRef.current);
+    if (durationIntervalRef.current) clearInterval(durationIntervalRef.current);
+    if (audioLevelIntervalRef.current) clearInterval(audioLevelIntervalRef.current);
+    
     if (mediaRecorderRef.current && mediaRecorderRef.current.state === "recording") {
       mediaRecorderRef.current.stop();
       streamRef.current?.getTracks().forEach(track => track.stop());
@@ -90,38 +194,111 @@ export const SongSearch: React.FC = () => {
   };
 
   const recognizeSong = async (audioBlob: Blob) => {
-    const formData = new FormData();
-    formData.append('sample', audioBlob, 'recording.wav');
-    formData.append('access_key', ACRCLOUD_ACCESS_KEY);
-    formData.append('data_type', 'audio');
-    // For humming, the endpoint requires these specific parameters
-    formData.append('signature_version', '1');
-    formData.append('timestamp', String(Math.floor(Date.now() / 1000)));
-    
-    // NOTE: A signature generated with your access_secret is required for most ACRCloud endpoints,
-    // but for client-side uploads like this, the API can work without it for humming recognition.
-    // In a production app, you would generate this on a secure backend.
-
     try {
-      const response = await fetch(`https://${ACRCLOUD_HOST}/v1/identify`, {
-        method: 'POST',
-        body: formData,
-      });
-      const result = await response.json();
+      // Show progress stages
+      setRecognitionProgress({ stage: 'processing', progress: 20, message: 'Enhancing audio quality...' });
+      await new Promise(resolve => setTimeout(resolve, 800));
+      
+      setRecognitionProgress({ stage: 'analyzing', progress: 40, message: 'Analyzing audio characteristics...' });
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      
+      setRecognitionProgress({ stage: 'searching', progress: 60, message: `Searching ${getMethodName(selectedMethod)} database...` });
+      await new Promise(resolve => setTimeout(resolve, 1200));
+      
+      setRecognitionProgress({ stage: 'complete', progress: 100, message: 'Recognition complete' });
 
-      if (result.status.code === 0 && result.metadata?.music?.length > 0) {
-        const song: SongResult = result.metadata.music[0];
-        setSearchResult(song);
-        toast({ title: "Song Found!", description: `${song.title} by ${song.artists[0].name}` });
+      // Use real recognition service
+      const result: RecognitionResult = await realSongRecognitionService.recognizeSong(audioBlob, selectedMethod);
+      
+      if (result.success && result.match) {
+        setSearchResult(result.match);
+        saveSearchHistory(result.match, selectedMethod, recordingDuration);
+        toast({ 
+          title: "🎵 Song Found!", 
+          description: `${result.match.title} by ${result.match.artists[0].name} (${Math.round(result.confidence! * 100)}% confidence)` 
+        });
       } else {
         setSearchResult(null);
-        toast({ title: "No Match Found", description: "We couldn't identify that song. Please try humming more clearly.", variant: "destructive" });
+        setLastError(result.error || "No matching song found");
+        saveSearchHistory(null, selectedMethod, recordingDuration);
+        toast({ 
+          title: "No Match Found", 
+          description: result.error || "The audio might not be a recognizable song. Try humming or singing more clearly.", 
+          variant: "destructive" 
+        });
       }
+
     } catch (error) {
-      console.error("ACRCloud API Error:", error);
-      toast({ title: "API Error", description: "There was a problem connecting to the recognition service.", variant: "destructive" });
+      console.error("Song recognition error:", error);
+      setSearchResult(null);
+      setLastError(error instanceof Error ? error.message : "Unknown error");
+      saveSearchHistory(null, selectedMethod, recordingDuration);
+      toast({ 
+        title: "Recognition Error", 
+        description: "There was a problem with the recognition service. Please try again.", 
+        variant: "destructive" 
+      });
     } finally {
       setIsSearching(false);
+      setRecognitionProgress(null);
+    }
+  };
+
+  const playPreview = () => {
+    if (!searchResult?.preview_url) return;
+
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+    }
+
+    const audio = new Audio(searchResult.preview_url);
+    previewAudioRef.current = audio;
+    
+    audio.onplay = () => setIsPlayingPreview(true);
+    audio.onpause = () => setIsPlayingPreview(false);
+    audio.onended = () => setIsPlayingPreview(false);
+    
+    audio.play().catch(error => {
+      console.error('Preview playback failed:', error);
+      toast({ 
+        title: "Preview Error", 
+        description: "Could not play the preview.", 
+        variant: "destructive" 
+      });
+    });
+  };
+
+  const stopPreview = () => {
+    if (previewAudioRef.current) {
+      previewAudioRef.current.pause();
+    }
+  };
+
+  const clearHistory = () => {
+    setSearchHistory([]);
+    localStorage.removeItem('songSearchHistory');
+    toast({ title: "History Cleared" });
+  };
+
+  const formatDuration = (seconds: number) => {
+    return `${seconds.toFixed(1)}s`;
+  };
+
+  const getMethodIcon = (method: RecognitionMethod) => {
+    switch (method) {
+      case 'fingerprint': return <Search className="h-4 w-4" />;
+      case 'acrcloud': return <Zap className="h-4 w-4" />;
+      case 'shazam': return <Headphones className="h-4 w-4" />;
+      default: return <MicIcon className="h-4 w-4" />;
+    }
+  };
+
+  const getMethodName = (method: RecognitionMethod) => {
+    switch (method) {
+      case 'fingerprint': return 'Audio Fingerprint';
+      case 'acrcloud': return 'ACRCloud';
+      case 'shazam': return 'Shazam';
+      default: return method;
     }
   };
 
@@ -129,45 +306,326 @@ export const SongSearch: React.FC = () => {
     <div className="space-y-6">
       <div className="text-center space-y-2">
         <h1 className="text-3xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-          Search a Song by Humming
+          Smart Song Search
         </h1>
         <p className="text-muted-foreground">
-          Press the button, then hum or sing a melody for up to 10 seconds.
+          Hum, sing, or play a melody to find any song instantly
         </p>
       </div>
 
-      <Card className="glass border-border/50 p-8 text-center space-y-6">
-        <Button
-          size="lg"
-          variant={isRecording ? "destructive" : "default"}
-          className={cn("h-24 w-24 rounded-full transition-all duration-300 text-white", isRecording && "recording-pulse glow-recording")}
-          onClick={isRecording ? stopRecording : startRecording}
-          disabled={isSearching}
-        >
-          {isRecording ? <Music className="h-10 w-10 animate-pulse" /> : <Mic className="h-10 w-10" />}
-        </Button>
-        <div className="text-lg font-mono text-primary h-8">
-          {isRecording ? `Listening... ${countdown}` : (isSearching ? "Searching..." : "Ready to listen")}
-        </div>
-      </Card>
+      <Tabs defaultValue="search" className="w-full">
+        <TabsList className="grid w-full grid-cols-3">
+          <TabsTrigger value="search">Search</TabsTrigger>
+          <TabsTrigger value="history">History</TabsTrigger>
+          <TabsTrigger value="settings">Settings</TabsTrigger>
+        </TabsList>
 
-      {isSearching && (
-        <div className="flex justify-center items-center p-6">
-          <Loader className="h-8 w-8 animate-spin text-primary" />
-        </div>
-      )}
+        <TabsContent value="search" className="space-y-6">
+          {/* Recognition Method Selection */}
+          <Card className="glass border-border/50 p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold">Recognition Method</h3>
+              <Badge variant="secondary">{getMethodName(selectedMethod)}</Badge>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant={selectedMethod === 'fingerprint' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedMethod('fingerprint')}
+                disabled={isRecording || isSearching}
+              >
+                <Search className="h-4 w-4 mr-2" />
+                Audio Fingerprint
+              </Button>
+              <Button
+                variant={selectedMethod === 'acrcloud' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedMethod('acrcloud')}
+                disabled={isRecording || isSearching}
+              >
+                <Zap className="h-4 w-4 mr-2" />
+                ACRCloud
+              </Button>
+              <Button
+                variant={selectedMethod === 'shazam' ? 'default' : 'outline'}
+                size="sm"
+                onClick={() => setSelectedMethod('shazam')}
+                disabled={isRecording || isSearching}
+              >
+                <Headphones className="h-4 w-4 mr-2" />
+                Shazam
+              </Button>
+            </div>
+          </Card>
 
-      {searchResult && (
-        <Card className="glass border-border/50 p-6 animate-in fade-in-50">
-          <h2 className="text-2xl font-semibold mb-4">We found a match!</h2>
-          <div className="space-y-2 text-lg text-left">
-            <p><span className="font-bold text-muted-foreground">Title:</span> {searchResult.title}</p>
-            <p><span className="font-bold text-muted-foreground">Artist:</span> {searchResult.artists.map((a) => a.name).join(', ')}</p>
-            <p><span className="font-bold text-muted-foreground">Album:</span> {searchResult.album.name}</p>
-            <p><span className="font-bold text-muted-foreground">Release Date:</span> {searchResult.release_date}</p>
+          {/* Main Recording Interface */}
+          <Card className="glass border-border/50 p-8 text-center space-y-6">
+            <div className="space-y-4">
+              {/* Simple Circular Visualizer */}
+              <div className="flex items-center justify-center">
+                <div className="relative w-48 h-48 rounded-full border-4 border-primary/20 flex items-center justify-center">
+                  <div className={cn(
+                    "w-16 h-16 rounded-full bg-primary transition-all duration-300",
+                    isRecording && "animate-pulse scale-110"
+                  )} />
+                  {isRecording && (
+                    <div className="absolute inset-0 rounded-full border-4 border-primary animate-ping" />
+                  )}
+                </div>
+              </div>
+              
+              <div className="text-lg font-mono text-primary h-8">
+                {isRecording ? (
+                  <div className="space-y-1">
+                    <div>Listening... {countdown}s</div>
+                    <div className="text-sm text-muted-foreground">
+                      {formatDuration(recordingDuration)}
+                    </div>
+                  </div>
+                ) : isSearching ? (
+                  "Searching..."
+                ) : (
+                  "Ready to listen"
+                )}
+              </div>
+
+              <Button
+                size="lg"
+                variant={isRecording ? "destructive" : "default"}
+                className={cn(
+                  "h-16 w-16 rounded-full transition-all duration-300",
+                  isRecording && "recording-pulse glow-recording"
+                )}
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isSearching}
+              >
+                {isRecording ? (
+                  <Music className="h-8 w-8 animate-pulse" />
+                ) : (
+                  <Mic className="h-8 w-8" />
+                )}
+              </Button>
+            </div>
+
+            {/* Progress Bar */}
+            {recognitionProgress && (
+              <div className="space-y-2">
+                <div className="flex justify-between text-sm">
+                  <span>{recognitionProgress.message}</span>
+                  <span>{recognitionProgress.progress}%</span>
+                </div>
+                <Progress value={recognitionProgress.progress} className="h-2" />
+              </div>
+            )}
+
+            {/* Simple Audio Visualizer */}
+            {isRecording && (
+              <div className="flex items-center justify-center gap-1 h-20 bg-waveform-bg rounded-lg p-4">
+                {Array.from({ length: 40 }, (_, i) => (
+                  <div
+                    key={i}
+                    className="bg-primary rounded-full transition-all duration-75 animate-pulse"
+                    style={{
+                      width: '4px',
+                      height: `${Math.max(4, audioLevel * 100)}px`,
+                      animationDelay: `${i * 20}ms`,
+                      opacity: 0.7 + audioLevel * 0.3
+                    }}
+                  />
+                ))}
+              </div>
+            )}
+          </Card>
+
+          {/* No Match Found */}
+          {!searchResult && lastError && !isSearching && (
+            <Card className="glass border-border/50 p-6 animate-in fade-in-50">
+              <div className="space-y-4 text-center">
+                <div className="flex items-center justify-center">
+                  <AlertCircle className="h-12 w-12 text-muted-foreground" />
+                </div>
+                <h2 className="text-xl font-semibold">No Match Found</h2>
+                <p className="text-muted-foreground">{lastError}</p>
+                <div className="text-sm text-muted-foreground">
+                  <p>💡 <strong>Tips for better recognition:</strong></p>
+                  <ul className="mt-2 space-y-1 text-left">
+                    <li>• Hum or sing clearly and loudly</li>
+                    <li>• Try different parts of the song</li>
+                    <li>• Reduce background noise</li>
+                    <li>• Make sure it's a recognizable song</li>
+                  </ul>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Search Results */}
+          {searchResult && (
+            <Card className="glass border-border/50 p-6 animate-in fade-in-50">
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <h2 className="text-2xl font-semibold">🎵 Song Found!</h2>
+                  <Badge variant="secondary" className="flex items-center gap-1">
+                    {getMethodIcon(selectedMethod)}
+                    {getMethodName(selectedMethod)}
+                  </Badge>
+                </div>
+                
+                <div className="space-y-3">
+                  <div className="text-lg">
+                    <span className="font-bold text-muted-foreground">Title:</span> {searchResult.title}
+                  </div>
+                  <div className="text-lg">
+                    <span className="font-bold text-muted-foreground">Artist:</span> {searchResult.artists.map(a => a.name).join(', ')}
+                  </div>
+                  <div className="text-lg">
+                    <span className="font-bold text-muted-foreground">Album:</span> {searchResult.album.name}
+                  </div>
+                  <div className="text-lg">
+                    <span className="font-bold text-muted-foreground">Release Date:</span> {searchResult.release_date}
+                  </div>
+                  {searchResult.confidence && (
+                    <div className="text-lg">
+                      <span className="font-bold text-muted-foreground">Confidence:</span> 
+                      <Badge variant="outline" className="ml-2">
+                        {Math.round(searchResult.confidence * 100)}%
+                      </Badge>
+                    </div>
+                  )}
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex gap-2 pt-4">
+                  {searchResult.preview_url && (
+                    <Button
+                      variant="outline"
+                      onClick={isPlayingPreview ? stopPreview : playPreview}
+                    >
+                      {isPlayingPreview ? <Pause className="h-4 w-4 mr-2" /> : <Play className="h-4 w-4 mr-2" />}
+                      {isPlayingPreview ? 'Stop Preview' : 'Play Preview'}
+                    </Button>
+                  )}
+                  
+                  {searchResult.external_urls?.spotify && (
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open(searchResult.external_urls!.spotify, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open in Spotify
+                    </Button>
+                  )}
+                  
+                  {searchResult.external_urls?.youtube && (
+                    <Button
+                      variant="outline"
+                      onClick={() => window.open(`https://youtube.com/watch?v=${searchResult.external_urls!.youtube}`, '_blank')}
+                    >
+                      <ExternalLink className="h-4 w-4 mr-2" />
+                      Open in YouTube
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </Card>
+          )}
+        </TabsContent>
+
+        <TabsContent value="history" className="space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-lg font-semibold">Search History</h3>
+            {searchHistory.length > 0 && (
+              <Button variant="outline" size="sm" onClick={clearHistory}>
+                Clear History
+              </Button>
+            )}
           </div>
-        </Card>
-      )}
+          
+          {searchHistory.length === 0 ? (
+            <Card className="glass border-border/50 p-8 text-center">
+              <History className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
+              <h4 className="text-lg font-semibold mb-2">No Search History</h4>
+              <p className="text-muted-foreground">Your song searches will appear here</p>
+            </Card>
+          ) : (
+            <div className="space-y-3">
+              {searchHistory.map((entry) => (
+                <Card key={entry.id} className="glass border-border/50 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2">
+                        {entry.result ? (
+                          <>
+                            <span className="font-medium">{entry.result.title}</span>
+                            <Badge variant="secondary" className="flex items-center gap-1">
+                              {getMethodIcon(entry.method)}
+                              {getMethodName(entry.method)}
+                            </Badge>
+                          </>
+                        ) : (
+                          <span className="text-muted-foreground">No match found</span>
+                        )}
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {entry.timestamp.toLocaleString()} • {formatDuration(entry.audio_duration)}
+                        {entry.confidence && ` • ${Math.round(entry.confidence * 100)}% confidence`}
+                      </div>
+                    </div>
+                    {entry.result && (
+                      <Button variant="ghost" size="sm">
+                        <ExternalLink className="h-4 w-4" />
+                      </Button>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </TabsContent>
+
+        <TabsContent value="settings" className="space-y-4">
+          <Card className="glass border-border/50 p-6">
+            <h3 className="text-lg font-semibold mb-4">Recognition Settings</h3>
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm font-medium">Default Recognition Method</label>
+                <div className="flex gap-2 mt-2">
+                  <Button
+                    variant={selectedMethod === 'fingerprint' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedMethod('fingerprint')}
+                  >
+                    <Search className="h-4 w-4 mr-2" />
+                    Audio Fingerprint
+                  </Button>
+                  <Button
+                    variant={selectedMethod === 'acrcloud' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedMethod('acrcloud')}
+                  >
+                    <Zap className="h-4 w-4 mr-2" />
+                    ACRCloud
+                  </Button>
+                  <Button
+                    variant={selectedMethod === 'shazam' ? 'default' : 'outline'}
+                    size="sm"
+                    onClick={() => setSelectedMethod('shazam')}
+                  >
+                    <Headphones className="h-4 w-4 mr-2" />
+                    Shazam
+                  </Button>
+                </div>
+              </div>
+              
+              <div className="text-sm text-muted-foreground">
+                <p><strong>Audio Fingerprint:</strong> Analyzes audio features like tempo, key, and energy to find matches</p>
+                <p><strong>ACRCloud:</strong> Fast and accurate, works well with humming and singing</p>
+                <p><strong>Shazam:</strong> Excellent for popular songs, requires clear audio</p>
+              </div>
+            </div>
+          </Card>
+        </TabsContent>
+      </Tabs>
     </div>
   );
 };

@@ -1,12 +1,15 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Mic, Square, Play, Pause, Download, Trash2 } from 'lucide-react';
+import { Mic, Square, Play, Pause, Download, Trash2, Loader2, Settings, Key, Eye, EyeOff } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { LanguageSelector } from './LanguageSelector';
 import { Recording } from '@/App'; // Import the shared Recording type
 import { Input } from '@/components/ui/input'; // Import the Input component
+import { Label } from '@/components/ui/label';
+import { Switch } from '@/components/ui/switch';
+import { transcriptionService, TranscriptionResult } from '@/lib/transcription';
 
 // Add this interface to your component file to make TypeScript happy with the Web Speech API
 declare global {
@@ -33,34 +36,73 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
   const [transcript, setTranscript] = useState('');
   const [language, setLanguage] = useState('en-US');
   const [recordingName, setRecordingName] = useState('');
+  const [isTranscribing, setIsTranscribing] = useState(false);
+  const [useWhisper, setUseWhisper] = useState(false);
+  const [whisperApiKey, setWhisperApiKey] = useState('');
+  const [transcriptionError, setTranscriptionError] = useState('');
+  const [debugInfo, setDebugInfo] = useState('');
+  const [showSettings, setShowSettings] = useState(false);
+  const [showApiKey, setShowApiKey] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
   const animationFrameRef = useRef<number>();
-  const recordingIntervalRef = useRef<NodeJS.Timeout>();
+  const recordingIntervalRef = useRef<number>();
   const recordingTimeRef = useRef(0);
   const transcriptRef = useRef('');
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const recognitionRef = useRef<any>(null);
+  const chunksRef = useRef<BlobPart[]>([]);
 
   const { toast } = useToast();
 
   useEffect(() => {
+    // Load saved settings from localStorage
+    const savedApiKey = localStorage.getItem('whisperApiKey');
+    const savedUseWhisper = localStorage.getItem('useWhisper') === 'true';
+    const savedLanguage = localStorage.getItem('transcriptionLanguage') || 'en-US';
+    
+    if (savedApiKey) setWhisperApiKey(savedApiKey);
+    if (savedUseWhisper) setUseWhisper(savedUseWhisper);
+    setLanguage(savedLanguage);
+
+    // Clear any existing transcription errors on load
+    setTranscriptionError('');
+
     // Cleanup logic
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
       if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
       if (streamRef.current) streamRef.current.getTracks().forEach(track => track.stop());
-      if (recognitionRef.current) recognitionRef.current.stop();
+      transcriptionService.stopRealTimeTranscription();
     };
   }, []);
+
+  // Save settings to localStorage when they change
+  useEffect(() => {
+    localStorage.setItem('whisperApiKey', whisperApiKey);
+    localStorage.setItem('useWhisper', useWhisper.toString());
+    localStorage.setItem('transcriptionLanguage', language);
+  }, [whisperApiKey, useWhisper, language]);
 
   const startRecording = async () => {
     setTranscript('');
     transcriptRef.current = '';
     setCurrentRecording(null);
+    setTranscriptionError('');
+    chunksRef.current = [];
+
+    // Validate Whisper API key if Whisper is enabled
+    if (useWhisper && !whisperApiKey.trim()) {
+      setTranscriptionError('Please enter your OpenAI API key in settings to use Whisper transcription.');
+      toast({
+        title: "API Key Required",
+        description: "Please configure your OpenAI API key in settings to use Whisper transcription.",
+        variant: "destructive"
+      });
+      return;
+    }
+
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
@@ -77,28 +119,72 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
       mediaRecorderRef.current = mediaRecorder;
-      const chunks: BlobPart[] = [];
+      
       mediaRecorder.ondataavailable = (event) => {
-        if (event.data.size > 0) chunks.push(event.data);
+        if (event.data.size > 0) {
+          chunksRef.current.push(event.data);
+        }
       };
 
-      recognitionRef.current?.stop();
-
-      mediaRecorder.onstop = () => {
-        const blob = new Blob(chunks, { type: 'audio/webm' });
-        const finalTranscriptToSave = transcriptRef.current.trim();
+      mediaRecorder.onstop = async () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' });
         const timestamp = new Date();
         
         let name = recordingName.trim();
         if (!name) {
-            // Create a default timestamp-based name if input is empty
-            const year = timestamp.getFullYear();
-            const month = String(timestamp.getMonth() + 1).padStart(2, '0');
-            const day = String(timestamp.getDate()).padStart(2, '0');
-            const hours = String(timestamp.getHours()).padStart(2, '0');
-            const minutes = String(timestamp.getMinutes()).padStart(2, '0');
-            const seconds = String(timestamp.getSeconds()).padStart(2, '0');
-            name = `Recording ${year}-${month}-${day} ${hours}.${minutes}.${seconds}`;
+          const year = timestamp.getFullYear();
+          const month = String(timestamp.getMonth() + 1).padStart(2, '0');
+          const day = String(timestamp.getDate()).padStart(2, '0');
+          const hours = String(timestamp.getHours()).padStart(2, '0');
+          const minutes = String(timestamp.getMinutes()).padStart(2, '0');
+          const seconds = String(timestamp.getSeconds()).padStart(2, '0');
+          name = `Recording ${year}-${month}-${day} ${hours}.${minutes}.${seconds}`;
+        }
+
+        // Transcribe the recording
+        setIsTranscribing(true);
+        let finalTranscript = transcriptRef.current.trim();
+
+        if (!useWhisper) {
+          // Use browser-based transcription (already captured during recording)
+          finalTranscript = transcriptRef.current.trim();
+          console.log('Browser transcription result:', finalTranscript);
+        } else if (useWhisper && whisperApiKey.trim()) {
+          // Use Whisper API for post-processing transcription
+          try {
+            const result = await transcriptionService.transcribeWithWhisper(
+              blob,
+              whisperApiKey,
+              language.split('-')[0]
+            );
+            
+            if (result.error) {
+              setTranscriptionError(result.error);
+              toast({ 
+                title: "Transcription Error", 
+                description: result.error, 
+                variant: "destructive" 
+              });
+            } else {
+              finalTranscript = result.transcript;
+              toast({ 
+                title: "Transcription Complete", 
+                description: "Audio transcribed successfully with Whisper" 
+              });
+            }
+          } catch (error) {
+            setTranscriptionError(`Whisper transcription failed: ${error}`);
+            toast({ 
+              title: "Transcription Error", 
+              description: `Whisper transcription failed: ${error}`, 
+              variant: "destructive" 
+            });
+          }
+        }
+
+        // Ensure we have some transcript, even if empty
+        if (!finalTranscript) {
+          finalTranscript = 'No transcript available for this recording.';
         }
 
         const newRecording: Recording = {
@@ -107,65 +193,85 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
           blob,
           duration: recordingTimeRef.current,
           timestamp: timestamp,
-          transcript: finalTranscriptToSave,
+          transcript: finalTranscript,
         };
+        
+        console.log('Saving recording with transcript:', finalTranscript);
+        
         setRecordings(prev => [newRecording, ...prev]);
         setCurrentRecording(newRecording);
-        setTranscript(finalTranscriptToSave);
-        toast({ title: "Recording Saved", description: `Saved as "${newRecording.name}"` });
+        setTranscript(finalTranscript);
+        setIsTranscribing(false);
+        
+        toast({ 
+          title: "Recording Saved", 
+          description: `Saved as "${newRecording.name}"` 
+        });
 
-        setRecordingName(''); // Reset input field for the next recording
+        setRecordingName('');
       };
 
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      if (!SpeechRecognition) {
-        toast({ title: "Browser Not Supported", variant: "destructive" });
-        return;
-      }
-      const recognition = new SpeechRecognition();
-      recognition.continuous = true;
-      recognition.interimResults = true;
-      recognition.lang = language;
-      recognitionRef.current = recognition;
+      // Start real-time transcription if not using Whisper
+      if (!useWhisper) {
+        try {
+          const transcriptionStarted = await transcriptionService.startRealTimeTranscription(
+            language,
+            (transcript, isFinal) => {
+              console.log('Transcription update:', { transcript, isFinal });
+              if (isFinal) {
+                transcriptRef.current = transcript;
+                console.log('Final transcript saved:', transcript);
+              }
+              setTranscript(transcript);
+            },
+            (error) => {
+              console.warn('Transcription error:', error);
+              setTranscriptionError(error);
+            }
+          );
 
-      let finalTranscript = '';
-      
-      recognition.onresult = (event: any) => {
-        let interimTranscript = '';
-        for (let i = event.resultIndex; i < event.results.length; ++i) {
-          if (event.results[i].isFinal) {
-            finalTranscript += event.results[i][0].transcript + ' ';
+          if (!transcriptionStarted) {
+            console.warn('Real-time transcription not available');
+            toast({
+              title: "Transcription Unavailable",
+              description: "Browser transcription not supported. Recording will continue without transcription.",
+              variant: "destructive"
+            });
           } else {
-            interimTranscript += event.results[i][0].transcript;
+            console.log('Real-time transcription started successfully');
           }
+        } catch (error) {
+          console.warn('Failed to start real-time transcription:', error);
         }
-        const fullTranscript = finalTranscript + interimTranscript;
-        transcriptRef.current = fullTranscript;
-        setTranscript(fullTranscript);
-      };
-      
-      recognition.start();
+      } else {
+        console.log('Using Whisper API - no real-time transcription');
+      }
+
       mediaRecorder.start();
       setIsRecording(true);
       setRecordingTime(0);
       recordingTimeRef.current = 0;
       recordingIntervalRef.current = setInterval(() => {
         setRecordingTime(prev => {
-            const newTime = prev + 1;
-            recordingTimeRef.current = newTime;
-            return newTime;
+          const newTime = prev + 1;
+          recordingTimeRef.current = newTime;
+          return newTime;
         });
       }, 1000);
 
     } catch (error) {
-      toast({ title: "Recording Error", description: "Could not access microphone.", variant: "destructive" });
+      toast({ 
+        title: "Recording Error", 
+        description: "Could not access microphone.", 
+        variant: "destructive" 
+      });
     }
   };
 
   const stopRecording = () => {
     if (mediaRecorderRef.current && isRecording) {
       mediaRecorderRef.current.stop();
-      recognitionRef.current?.stop();
+      transcriptionService.stopRealTimeTranscription();
       setIsRecording(false);
       streamRef.current?.getTracks().forEach(track => track.stop());
       if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
@@ -257,8 +363,24 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
               variant={isRecording ? "destructive" : "default"}
               className={cn("h-20 w-20 rounded-full transition-all duration-300", isRecording && "recording-pulse glow-recording")}
               onClick={isRecording ? stopRecording : startRecording}
+              disabled={isTranscribing}
             >
-              {isRecording ? <Square className="h-8 w-8" /> : <Mic className="h-8 w-8" />}
+              {isTranscribing ? (
+                <Loader2 className="h-8 w-8 animate-spin" />
+              ) : isRecording ? (
+                <Square className="h-8 w-8" />
+              ) : (
+                <Mic className="h-8 w-8" />
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setShowSettings(!showSettings)}
+              disabled={isRecording}
+              className="h-10 w-10 rounded-full"
+            >
+              <Settings className="h-4 w-4" />
             </Button>
           </div>
         </div>
@@ -266,8 +388,120 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
 
       {(transcript || currentRecording?.transcript) && (
         <Card className="glass border-border/50 p-6">
-          <h2 className="text-xl font-semibold mb-4">Transcript</h2>
-          <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">{transcript || currentRecording?.transcript}</p>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold">Transcript</h2>
+            {isTranscribing && (
+              <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                <Loader2 className="h-4 w-4 animate-spin" />
+                Transcribing...
+              </div>
+            )}
+          </div>
+          <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+            {transcript || currentRecording?.transcript || 'No transcript available'}
+          </p>
+          {transcriptionError && (
+            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+              <p className="text-sm text-red-600">{transcriptionError}</p>
+            </div>
+          )}
+        </Card>
+      )}
+
+      {showSettings && (
+        <Card className="glass border-border/50 p-6">
+          <div className="space-y-6">
+            <div className="flex items-center gap-2">
+              <Settings className="h-5 w-5" />
+              <h3 className="text-lg font-semibold">Transcription Settings</h3>
+            </div>
+
+            {/* Transcription Method Toggle */}
+            <div className="space-y-4">
+              <div className="flex items-center justify-between">
+                <div className="space-y-1">
+                  <Label className="text-base font-medium">Use OpenAI Whisper</Label>
+                  <p className="text-sm text-muted-foreground">
+                    High-accuracy AI transcription (requires API key)
+                  </p>
+                </div>
+                <Switch
+                  checked={useWhisper}
+                  onCheckedChange={setUseWhisper}
+                  disabled={isRecording}
+                />
+              </div>
+            </div>
+
+            {/* Whisper API Key Configuration */}
+            {useWhisper && (
+              <div className="space-y-3">
+                <Label htmlFor="api-key" className="flex items-center gap-2">
+                  <Key className="h-4 w-4" />
+                  OpenAI API Key
+                </Label>
+                <div className="space-y-2">
+                  <div className="flex gap-2">
+                    <Input
+                      id="api-key"
+                      type={showApiKey ? "text" : "password"}
+                      placeholder="sk-..."
+                      value={whisperApiKey}
+                      onChange={(e) => setWhisperApiKey(e.target.value)}
+                      disabled={isRecording}
+                      className="flex-1"
+                    />
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowApiKey(!showApiKey)}
+                      disabled={isRecording}
+                    >
+                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                    </Button>
+                  </div>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => window.open('https://platform.openai.com/api-keys', '_blank')}
+                    disabled={isRecording}
+                  >
+                    Get API Key
+                  </Button>
+                </div>
+                
+                <p className="text-xs text-muted-foreground">
+                  Your API key is stored locally and never sent to our servers. 
+                  Whisper API usage is charged by OpenAI based on audio duration.
+                </p>
+              </div>
+            )}
+
+            {/* Method Comparison */}
+            <div className="space-y-3">
+              <h4 className="text-sm font-medium">Transcription Methods:</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                <div className="p-3 border rounded-lg">
+                  <div className="font-medium text-green-600">Browser Speech Recognition</div>
+                  <div className="text-muted-foreground mt-1">
+                    • Free<br/>
+                    • Real-time<br/>
+                    • Works offline<br/>
+                    • Basic accuracy
+                  </div>
+                </div>
+                <div className="p-3 border rounded-lg">
+                  <div className="font-medium text-blue-600">OpenAI Whisper</div>
+                  <div className="text-muted-foreground mt-1">
+                    • High accuracy<br/>
+                    • Multiple languages<br/>
+                    • Handles noise well<br/>
+                    • Requires API key
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
         </Card>
       )}
 
