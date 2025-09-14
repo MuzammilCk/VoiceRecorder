@@ -6,7 +6,8 @@ import {
   TrendingUp,
   Users,
   FileText,
-  Music // Added the Music icon
+  Music, // Added the Music icon
+  Gamepad2 // Added the Gamepad icon for Dino game
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -24,17 +25,11 @@ import {
 
 
 
-const mainItems = [
+const navigationItems = [
   { title: "Voice Studio", url: "/", icon: Mic },
-  { title: "Song Search", url: "/song-search", icon: Music }, // Added Song Search link
-  { title: "AI Insights", url: "/insights", icon: Brain },
-  { title: "Search & Discovery", url: "/search", icon: Search },
-  { title: "Analytics", url: "/analytics", icon: TrendingUp },
-];
-
-const workspaceItems = [
+  { title: "Song Search", url: "/song-search", icon: Music },
+  { title: "Dino Game", url: "/dino-game", icon: Gamepad2 },
   { title: "My Recordings", url: "/recordings", icon: FolderOpen },
-  { title: "Shared with Me", url: "/shared", icon: Users },
   { title: "Transcripts", url: "/transcripts", icon: FileText },
 ];
 
@@ -70,35 +65,11 @@ export function AppSidebar() {
           </div>
         </div>
 
-        {/* Main Navigation */}
+        {/* Navigation */}
         <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
-            {!isCollapsed ? "Main" : ""}
-          </SidebarGroupLabel>
           <SidebarGroupContent>
             <SidebarMenu>
-              {mainItems.map((item) => (
-                <SidebarMenuItem key={item.title}>
-                  <SidebarMenuButton asChild className="h-11">
-                    <NavLink to={item.url} className={getNavCls(item.url)}>
-                      <item.icon className="w-5 h-5" />
-                      {!isCollapsed && <span className="ml-3">{item.title}</span>}
-                    </NavLink>
-                  </SidebarMenuButton>
-                </SidebarMenuItem>
-              ))}
-            </SidebarMenu>
-          </SidebarGroupContent>
-        </SidebarGroup>
-
-        {/* Workspace */}
-        <SidebarGroup>
-          <SidebarGroupLabel className="text-xs uppercase tracking-wider text-muted-foreground">
-            {!isCollapsed ? "Workspace" : ""}
-          </SidebarGroupLabel>
-          <SidebarGroupContent>
-            <SidebarMenu>
-              {workspaceItems.map((item) => (
+              {navigationItems.map((item) => (
                 <SidebarMenuItem key={item.title}>
                   <SidebarMenuButton asChild className="h-11">
                     <NavLink to={item.url} className={getNavCls(item.url)}>
