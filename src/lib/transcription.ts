@@ -1,9 +1,10 @@
 import { Recording } from '@/App';
+import { assemblyAIService, AssemblyAITranscriptionResult } from './assemblyai';
 
 export interface TranscriptionResult {
   transcript: string;
   confidence?: number;
-  method: 'browser' | 'whisper' | 'manual';
+  method: 'browser' | 'whisper' | 'assemblyai' | 'manual';
   error?: string;
 }
 
@@ -11,6 +12,7 @@ export interface TranscriptionOptions {
   language?: string;
   useWhisper?: boolean;
   whisperApiKey?: string;
+  useAssemblyAI?: boolean;
 }
 
 class TranscriptionService {
@@ -207,6 +209,47 @@ class TranscriptionService {
   }
 
   /**
+   * Transcribe using AssemblyAI API (high accuracy)
+   */
+  async transcribeWithAssemblyAI(
+    audioBlob: Blob,
+    language: string = 'en',
+    onProgress?: (stage: string, status?: string) => void
+  ): Promise<TranscriptionResult> {
+    try {
+      console.log('Starting AssemblyAI transcription...');
+      
+      const result = await assemblyAIService.transcribeAudio(
+        audioBlob,
+        {
+          language_code: language,
+          speaker_labels: false,
+          auto_highlights: false,
+          sentiment_analysis: false,
+        },
+        onProgress
+      );
+
+      if (result.status === 'completed' && result.text) {
+        return {
+          transcript: result.text,
+          method: 'assemblyai',
+          confidence: result.confidence || 0.9
+        };
+      } else {
+        throw new Error(result.error || 'Transcription failed');
+      }
+    } catch (error) {
+      console.error('AssemblyAI transcription error:', error);
+      return {
+        transcript: '',
+        method: 'assemblyai',
+        error: `AssemblyAI error: ${error}`
+      };
+    }
+  }
+
+  /**
    * Transcribe using OpenAI Whisper API (requires API key)
    */
   async transcribeWithWhisper(
@@ -256,22 +299,35 @@ class TranscriptionService {
   getSupportedLanguages(): { code: string; name: string }[] {
     return [
       { code: 'en-US', name: 'English (US)' },
+      { code: 'en', name: 'English' },
       { code: 'en-GB', name: 'English (UK)' },
       { code: 'es-ES', name: 'Spanish (Spain)' },
+      { code: 'es', name: 'Spanish' },
       { code: 'es-MX', name: 'Spanish (Mexico)' },
       { code: 'fr-FR', name: 'French' },
+      { code: 'fr', name: 'French' },
       { code: 'de-DE', name: 'German' },
+      { code: 'de', name: 'German' },
       { code: 'it-IT', name: 'Italian' },
+      { code: 'it', name: 'Italian' },
       { code: 'pt-BR', name: 'Portuguese (Brazil)' },
       { code: 'pt-PT', name: 'Portuguese (Portugal)' },
+      { code: 'pt', name: 'Portuguese' },
       { code: 'ru-RU', name: 'Russian' },
+      { code: 'ru', name: 'Russian' },
       { code: 'ja-JP', name: 'Japanese' },
+      { code: 'ja', name: 'Japanese' },
       { code: 'ko-KR', name: 'Korean' },
+      { code: 'ko', name: 'Korean' },
       { code: 'zh-CN', name: 'Chinese (Simplified)' },
       { code: 'zh-TW', name: 'Chinese (Traditional)' },
+      { code: 'zh', name: 'Chinese' },
       { code: 'ar-SA', name: 'Arabic' },
+      { code: 'ar', name: 'Arabic' },
       { code: 'hi-IN', name: 'Hindi' },
+      { code: 'hi', name: 'Hindi' },
       { code: 'nl-NL', name: 'Dutch' },
+      { code: 'nl', name: 'Dutch' },
       { code: 'sv-SE', name: 'Swedish' },
       { code: 'no-NO', name: 'Norwegian' },
       { code: 'da-DK', name: 'Danish' },

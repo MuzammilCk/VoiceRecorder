@@ -39,6 +39,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
   const [isTranscribing, setIsTranscribing] = useState(false);
   const [useWhisper, setUseWhisper] = useState(false);
   const [whisperApiKey, setWhisperApiKey] = useState('');
+  const [useAssemblyAI, setUseAssemblyAI] = useState(true); // Default to AssemblyAI
   const [transcriptionError, setTranscriptionError] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
   const [showSettings, setShowSettings] = useState(false);
@@ -60,10 +61,12 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
     // Load saved settings from localStorage
     const savedApiKey = localStorage.getItem('whisperApiKey');
     const savedUseWhisper = localStorage.getItem('useWhisper') === 'true';
+    const savedUseAssemblyAI = localStorage.getItem('useAssemblyAI') !== 'false'; // Default true
     const savedLanguage = localStorage.getItem('transcriptionLanguage') || 'en-US';
     
     if (savedApiKey) setWhisperApiKey(savedApiKey);
     if (savedUseWhisper) setUseWhisper(savedUseWhisper);
+    setUseAssemblyAI(savedUseAssemblyAI);
     setLanguage(savedLanguage);
 
     // Clear any existing transcription errors on load
@@ -82,8 +85,9 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
   useEffect(() => {
     localStorage.setItem('whisperApiKey', whisperApiKey);
     localStorage.setItem('useWhisper', useWhisper.toString());
+    localStorage.setItem('useAssemblyAI', useAssemblyAI.toString());
     localStorage.setItem('transcriptionLanguage', language);
-  }, [whisperApiKey, useWhisper, language]);
+  }, [whisperApiKey, useWhisper, useAssemblyAI, language]);
 
   const startRecording = async () => {
     setTranscript('');
@@ -92,8 +96,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
     setTranscriptionError('');
     chunksRef.current = [];
 
-    // Validate Whisper API key if Whisper is enabled
-    if (useWhisper && !whisperApiKey.trim()) {
+    // Validate API keys if needed
+    if (useWhisper && !useAssemblyAI && !whisperApiKey.trim()) {
       setTranscriptionError('Please enter your OpenAI API key in settings to use Whisper transcription.');
       toast({
         title: "API Key Required",
@@ -101,6 +105,11 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
         variant: "destructive"
       });
       return;
+    }
+
+    // AssemblyAI doesn't need API key validation since it's hardcoded
+    if (useAssemblyAI) {
+      console.log('Using AssemblyAI for transcription');
     }
 
     try {
@@ -145,10 +154,48 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
         setIsTranscribing(true);
         let finalTranscript = transcriptRef.current.trim();
 
-        if (!useWhisper) {
+        if (!useWhisper && !useAssemblyAI) {
           // Use browser-based transcription (already captured during recording)
           finalTranscript = transcriptRef.current.trim();
           console.log('Browser transcription result:', finalTranscript);
+        } else if (useAssemblyAI) {
+          // Use AssemblyAI for high-quality transcription
+          try {
+            console.log('Starting AssemblyAI transcription...');
+            const result = await transcriptionService.transcribeWithAssemblyAI(
+              blob,
+              language.split('-')[0], // Convert 'en-US' to 'en'
+              (stage, status) => {
+                console.log(`AssemblyAI: ${stage}`, status);
+                // You could update UI here with progress
+              }
+            );
+            
+            if (result.error) {
+              setTranscriptionError(result.error);
+              toast({ 
+                title: "AssemblyAI Transcription Error", 
+                description: result.error, 
+                variant: "destructive" 
+              });
+              finalTranscript = transcriptRef.current.trim() || 'Transcription failed, but recording saved.';
+            } else {
+              finalTranscript = result.transcript;
+              toast({ 
+                title: "Transcription Complete", 
+                description: "Audio transcribed successfully with AssemblyAI" 
+              });
+            }
+          } catch (error) {
+            const errorMsg = `AssemblyAI transcription failed: ${error}`;
+            setTranscriptionError(errorMsg);
+            toast({ 
+              title: "Transcription Error", 
+              description: errorMsg, 
+              variant: "destructive" 
+            });
+            finalTranscript = transcriptRef.current.trim() || 'Transcription failed, but recording saved.';
+          }
         } else if (useWhisper && whisperApiKey.trim()) {
           // Use Whisper API for post-processing transcription
           try {
@@ -181,7 +228,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
             });
           }
         }
-
+          console.log('Real-time transcription disabled - using post-processing');
         // Ensure we have some transcript, even if empty
         if (!finalTranscript) {
           finalTranscript = 'No transcript available for this recording.';
@@ -212,7 +259,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
       };
 
       // Start real-time transcription if not using Whisper
-      if (!useWhisper) {
+      if (!useWhisper && !useAssemblyAI) {
         try {
           const transcriptionStarted = await transcriptionService.startRealTimeTranscription(
             language,
@@ -244,7 +291,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
           console.warn('Failed to start real-time transcription:', error);
         }
       } else {
-        console.log('Using Whisper API - no real-time transcription');
+        console.log('Using AI transcription - no real-time transcription');
       }
 
       mediaRecorder.start();
@@ -420,16 +467,75 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <div className="space-y-1">
-                  <Label className="text-base font-medium">Use OpenAI Whisper</Label>
+                  <Label className="text-base font-medium">Transcription Method</Label>
                   <p className="text-sm text-muted-foreground">
-                    High-accuracy AI transcription (requires API key)
+                    Choose your preferred transcription service
                   </p>
                 </div>
-                <Switch
-                  checked={useWhisper}
-                  onCheckedChange={setUseWhisper}
-                  disabled={isRecording}
-                />
+              </div>
+
+              <div className="space-y-3">
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">Browser Speech Recognition</span>
+                      <Badge variant="secondary">Free</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      Real-time transcription using your browser
+                    </p>
+                  </div>
+                  <Switch
+                    checked={!useWhisper && !useAssemblyAI}
+                    onCheckedChange={(checked) => {
+                      if (checked) {
+                        setUseWhisper(false);
+                        setUseAssemblyAI(false);
+                      }
+                    }}
+                    disabled={isRecording}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">AssemblyAI</span>
+                      <Badge variant="default">Recommended</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      High-accuracy AI transcription (built-in)
+                    </p>
+                  </div>
+                  <Switch
+                    checked={useAssemblyAI}
+                    onCheckedChange={(checked) => {
+                      setUseAssemblyAI(checked);
+                      if (checked) setUseWhisper(false);
+                    }}
+                    disabled={isRecording}
+                  />
+                </div>
+
+                <div className="flex items-center justify-between p-3 border rounded-lg">
+                  <div className="space-y-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-medium">OpenAI Whisper</span>
+                      <Badge variant="outline">Premium</Badge>
+                    </div>
+                    <p className="text-sm text-muted-foreground">
+                      High-accuracy AI transcription (requires API key)
+                    </p>
+                  </div>
+                  <Switch
+                    checked={useWhisper}
+                    onCheckedChange={(checked) => {
+                      setUseWhisper(checked);
+                      if (checked) setUseAssemblyAI(false);
+                    }}
+                    disabled={isRecording}
+                  />
+                </div>
               </div>
             </div>
 
@@ -480,7 +586,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
             {/* Method Comparison */}
             <div className="space-y-3">
               <h4 className="text-sm font-medium">Transcription Methods:</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
                 <div className="p-3 border rounded-lg">
                   <div className="font-medium text-green-600">Browser Speech Recognition</div>
                   <div className="text-muted-foreground mt-1">
@@ -488,6 +594,15 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
                     • Real-time<br/>
                     • Works offline<br/>
                     • Basic accuracy
+                  </div>
+                </div>
+                <div className="p-3 border rounded-lg">
+                  <div className="font-medium text-blue-600">AssemblyAI</div>
+                  <div className="text-muted-foreground mt-1">
+                    • Very high accuracy<br/>
+                    • Multiple languages<br/>
+                    • Built-in (no setup)<br/>
+                    • Fast processing
                   </div>
                 </div>
                 <div className="p-3 border rounded-lg">

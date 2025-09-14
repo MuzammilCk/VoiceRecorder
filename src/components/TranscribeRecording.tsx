@@ -133,6 +133,58 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
     }
   };
 
+  const transcribeWithAssemblyAI = async () => {
+    setIsTranscribing(true);
+    setTranscriptionResult(null);
+
+    try {
+      const result = await transcriptionService.transcribeWithAssemblyAI(
+        recording.blob,
+        language.split('-')[0], // Convert 'en-US' to 'en'
+        (stage, status) => {
+          console.log(`AssemblyAI Progress: ${stage}`, status);
+        }
+      );
+      
+      if (result.error) {
+        setTranscriptionResult({
+          success: false,
+          transcript: '',
+          error: result.error
+        });
+        toast({
+          title: "AssemblyAI Transcription Failed",
+          description: result.error,
+          variant: "destructive"
+        });
+      } else {
+        setTranscriptionResult({
+          success: true,
+          transcript: result.transcript
+        });
+        onTranscriptionComplete(recording.id, result.transcript);
+        toast({
+          title: "AssemblyAI Transcription Complete",
+          description: "High-quality transcription completed"
+        });
+      }
+    } catch (error) {
+      const errorMessage = `AssemblyAI transcription failed: ${error}`;
+      setTranscriptionResult({
+        success: false,
+        transcript: '',
+        error: errorMessage
+      });
+      toast({
+        title: "AssemblyAI Error",
+        description: errorMessage,
+        variant: "destructive"
+      });
+    } finally {
+      setIsTranscribing(false);
+    }
+  };
+
   const hasTranscript = recording.transcript && recording.transcript.trim().length > 0;
 
   return (
@@ -194,6 +246,18 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
           <Button
             variant="outline"
             size="sm"
+            onClick={transcribeWithAssemblyAI}
+            disabled={isTranscribing}
+          >
+            {isTranscribing ? (
+              <Loader2 className="h-4 w-4 animate-spin mr-2" />
+            ) : null}
+            Transcribe (AssemblyAI)
+          </Button>
+          
+          <Button
+            variant="outline"
+            size="sm"
             onClick={transcribeWithWhisper}
             disabled={isTranscribing || !whisperApiKey.trim()}
           >
@@ -204,11 +268,13 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
           </Button>
         </div>
 
-        {!whisperApiKey.trim() && (
+        <div className="text-xs text-muted-foreground space-y-1">
           <p className="text-xs text-muted-foreground">
-            Add a Whisper API key in settings for high-quality transcription
+            • Browser: Free, real-time, basic accuracy<br/>
+            • AssemblyAI: High accuracy, built-in, recommended<br/>
+            • Whisper: High accuracy, requires API key
           </p>
-        )}
+        </div>
       </div>
     </Card>
   );
