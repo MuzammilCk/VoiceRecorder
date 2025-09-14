@@ -25,7 +25,7 @@ import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { realSongRecognitionService, RecognitionResult, SongMatch } from '@/lib/realSongRecognition';
 
-type RecognitionMethod = 'fingerprint' | 'acrcloud' | 'shazam';
+type RecognitionMethod = 'acrcloud';
 
 interface RecognitionProgress {
   stage: 'recording' | 'processing' | 'analyzing' | 'searching' | 'complete';
@@ -50,7 +50,7 @@ export const SongSearch: React.FC = () => {
   const [audioLevel, setAudioLevel] = useState(0);
   const [recognitionProgress, setRecognitionProgress] = useState<RecognitionProgress | null>(null);
   const [searchHistory, setSearchHistory] = useState<SearchHistory[]>([]);
-  const [selectedMethod, setSelectedMethod] = useState<RecognitionMethod>('fingerprint');
+  const [selectedMethod, setSelectedMethod] = useState<RecognitionMethod>('acrcloud');
   const [recordingDuration, setRecordingDuration] = useState(0);
   const [isPlayingPreview, setIsPlayingPreview] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
@@ -285,21 +285,11 @@ export const SongSearch: React.FC = () => {
   };
 
   const getMethodIcon = (method: RecognitionMethod) => {
-    switch (method) {
-      case 'fingerprint': return <Search className="h-4 w-4" />;
-      case 'acrcloud': return <Zap className="h-4 w-4" />;
-      case 'shazam': return <Headphones className="h-4 w-4" />;
-      default: return <MicIcon className="h-4 w-4" />;
-    }
+    return <Zap className="h-4 w-4" />;
   };
 
   const getMethodName = (method: RecognitionMethod) => {
-    switch (method) {
-      case 'fingerprint': return 'Audio Fingerprint';
-      case 'acrcloud': return 'ACRCloud';
-      case 'shazam': return 'Shazam';
-      default: return method;
-    }
+    return 'ACRCloud Humming Recognition';
   };
 
   return (
@@ -321,43 +311,6 @@ export const SongSearch: React.FC = () => {
         </TabsList>
 
         <TabsContent value="search" className="space-y-6">
-          {/* Recognition Method Selection */}
-          <Card className="glass border-border/50 p-4">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold">Recognition Method</h3>
-              <Badge variant="secondary">{getMethodName(selectedMethod)}</Badge>
-            </div>
-            <div className="flex gap-2">
-              <Button
-                variant={selectedMethod === 'fingerprint' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedMethod('fingerprint')}
-                disabled={isRecording || isSearching}
-              >
-                <Search className="h-4 w-4 mr-2" />
-                Audio Fingerprint
-              </Button>
-              <Button
-                variant={selectedMethod === 'acrcloud' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedMethod('acrcloud')}
-                disabled={isRecording || isSearching}
-              >
-                <Zap className="h-4 w-4 mr-2" />
-                ACRCloud
-              </Button>
-              <Button
-                variant={selectedMethod === 'shazam' ? 'default' : 'outline'}
-                size="sm"
-                onClick={() => setSelectedMethod('shazam')}
-                disabled={isRecording || isSearching}
-              >
-                <Headphones className="h-4 w-4 mr-2" />
-                Shazam
-              </Button>
-            </div>
-          </Card>
-
           {/* Main Recording Interface */}
           <Card className="glass border-border/50 p-8 text-center space-y-6">
             <div className="space-y-4">
@@ -377,15 +330,15 @@ export const SongSearch: React.FC = () => {
               <div className="text-lg font-mono text-primary h-8">
                 {isRecording ? (
                   <div className="space-y-1">
-                    <div>Listening... {countdown}s</div>
+                    <div>Recording... {countdown}s</div>
                     <div className="text-sm text-muted-foreground">
                       {formatDuration(recordingDuration)}
                     </div>
                   </div>
                 ) : isSearching ? (
-                  "Searching..."
+                  "Processing..."
                 ) : (
-                  "Ready to listen"
+                  "Ready to record"
                 )}
               </div>
 
@@ -585,42 +538,26 @@ export const SongSearch: React.FC = () => {
 
         <TabsContent value="settings" className="space-y-4">
           <Card className="glass border-border/50 p-6">
-            <h3 className="text-lg font-semibold mb-4">Recognition Settings</h3>
+            <h3 className="text-lg font-semibold mb-4">Song Recognition Settings</h3>
             <div className="space-y-4">
-              <div>
-                <label className="text-sm font-medium">Default Recognition Method</label>
-                <div className="flex gap-2 mt-2">
-                  <Button
-                    variant={selectedMethod === 'fingerprint' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedMethod('fingerprint')}
-                  >
-                    <Search className="h-4 w-4 mr-2" />
-                    Audio Fingerprint
-                  </Button>
-                  <Button
-                    variant={selectedMethod === 'acrcloud' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedMethod('acrcloud')}
-                  >
-                    <Zap className="h-4 w-4 mr-2" />
-                    ACRCloud
-                  </Button>
-                  <Button
-                    variant={selectedMethod === 'shazam' ? 'default' : 'outline'}
-                    size="sm"
-                    onClick={() => setSelectedMethod('shazam')}
-                  >
-                    <Headphones className="h-4 w-4 mr-2" />
-                    Shazam
-                  </Button>
+              <div className="flex items-center gap-3">
+                <Music className="h-8 w-8 text-primary" />
+                <div>
+                  <h4 className="font-medium">Audio Recognition</h4>
+                  <p className="text-sm text-muted-foreground">
+                    Advanced audio recognition technology for song identification
+                  </p>
                 </div>
               </div>
               
-              <div className="text-sm text-muted-foreground">
-                <p><strong>Audio Fingerprint:</strong> Analyzes audio features like tempo, key, and energy to find matches</p>
-                <p><strong>ACRCloud:</strong> Fast and accurate, works well with humming and singing</p>
-                <p><strong>Shazam:</strong> Excellent for popular songs, requires clear audio</p>
+              <div className="text-sm text-muted-foreground bg-muted/50 p-4 rounded-lg">
+                <h5 className="font-medium mb-2">How it works:</h5>
+                <ul className="space-y-1">
+                  <li>• Records 10 seconds of audio for optimal recognition</li>
+                  <li>• Analyzes melody patterns and audio fingerprints</li>
+                  <li>• Searches extensive music database</li>
+                  <li>• Works best with clear humming or singing</li>
+                </ul>
               </div>
             </div>
           </Card>

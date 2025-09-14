@@ -6,10 +6,10 @@ The Smart Song Search feature is a professional-grade music recognition system t
 
 ## ✨ Key Features
 
-### 🎤 **Multiple Recognition Methods**
-- **ACRCloud**: Fast and accurate recognition, excellent for humming
-- **Shazam**: Industry-leading recognition for popular songs
-- **Hybrid Approach**: Combines multiple methods for best results
+### 🎤 **ACRCloud Humming Recognition**
+- **ACRCloud API**: Advanced humming recognition technology
+- **Optimized for Voice**: Specifically designed for humming and singing
+- **High Accuracy**: Professional-grade recognition with confidence scoring
 
 ### 🎨 **Advanced Audio Visualization**
 - **Circular Visualizer**: Real-time audio level display
@@ -61,21 +61,15 @@ The Smart Song Search feature is a professional-grade music recognition system t
 - **History Storage**: Save to local storage
 - **User Feedback**: Clear success/failure messages
 
-## 🎯 Recognition Methods
+## 🎯 Recognition Technology
 
-### **ACRCloud API**
-- **Best For**: Humming, singing, instrumental music
-- **Accuracy**: 85-95% for clear audio
-- **Speed**: 2-5 seconds
-- **Coverage**: 50+ million songs
+### **ACRCloud Humming Recognition API**
+- **Best For**: Humming, singing, whistling, and instrumental music
+- **Accuracy**: 85-95% for clear audio, 80-90% for humming
+- **Speed**: 2-5 seconds processing time
+- **Coverage**: 50+ million songs worldwide
 - **Languages**: 50+ languages supported
-
-### **Shazam API** (Placeholder)
-- **Best For**: Popular songs, clear recordings
-- **Accuracy**: 90-98% for popular music
-- **Speed**: 1-3 seconds
-- **Coverage**: 30+ million songs
-- **Languages**: 30+ languages supported
+- **Specialization**: Optimized for melody recognition from voice input
 
 ## 🎨 User Interface
 
@@ -137,11 +131,10 @@ The Smart Song Search feature is a professional-grade music recognition system t
 
 ### **Basic Usage**
 1. **Open the app** and navigate to Song Search
-2. **Select recognition method** (ACRCloud recommended)
-3. **Click the microphone button** to start recording
-4. **Hum, sing, or play** the melody for up to 10 seconds
-5. **Wait for results** - recognition takes 2-5 seconds
-6. **View results** with song information and actions
+2. **Click the microphone button** to start recording (ACRCloud is the only method)
+3. **Hum, sing, or whistle** the melody for up to 10 seconds
+4. **Wait for results** - recognition takes 2-5 seconds
+5. **View results** with song information and streaming links
 
 ### **Advanced Features**
 - **Method Comparison**: Try different recognition methods

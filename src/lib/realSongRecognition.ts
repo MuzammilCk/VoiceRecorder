@@ -1,5 +1,5 @@
-// Real Song Recognition Service - Like Shazam
-// This service actually analyzes audio and searches for songs
+// ACRCloud Humming Recognition Service
+// This service uses ACRCloud's API for real song recognition from humming/singing
 
 export interface AudioFeatures {
   tempo: number;
@@ -36,359 +36,124 @@ export interface RecognitionResult {
   confidence?: number;
   error?: string;
   processing_time: number;
-  method: 'fingerprint' | 'acrcloud' | 'shazam';
+  method: 'acrcloud';
 }
 
 class RealSongRecognitionService {
+  // ACRCloud API configuration
+  private readonly ACRCLOUD_HOST = 'identify-us-west-2.acrcloud.com';
+  private readonly ACRCLOUD_ENDPOINT = '/v1/identify';
+  
+  // Note: In production, these should be environment variables
+  private readonly ACCESS_KEY = import.meta.env.VITE_ACRCLOUD_ACCESS_KEY || '';
+  private readonly ACCESS_SECRET = import.meta.env.VITE_ACRCLOUD_ACCESS_SECRET || '';
+
   private audioContext: AudioContext | null = null;
   private analyser: AnalyserNode | null = null;
   private dataArray: Uint8Array | null = null;
 
-  // Initialize audio context for analysis
-  private async initAudioContext(): Promise<void> {
-    if (!this.audioContext) {
-      this.audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    }
-    if (this.audioContext.state === 'suspended') {
-      await this.audioContext.resume();
+  constructor() {
+    if (!this.ACCESS_KEY || !this.ACCESS_SECRET) {
+      console.warn('ACRCloud API credentials not found. Please set VITE_ACRCLOUD_ACCESS_KEY and VITE_ACRCLOUD_ACCESS_SECRET environment variables.');
     }
   }
 
-  // Extract audio features from recorded audio
-  private async extractAudioFeatures(audioBlob: Blob): Promise<AudioFeatures> {
-    await this.initAudioContext();
-    
-    const arrayBuffer = await audioBlob.arrayBuffer();
-    const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
-    
-    // Get audio data
-    const channelData = audioBuffer.getChannelData(0);
-    const sampleRate = audioBuffer.sampleRate;
-    const duration = audioBuffer.duration;
-    
-    // Calculate tempo (BPM) using autocorrelation
-    const tempo = this.calculateTempo(channelData, sampleRate);
-    
-    // Calculate key and mode using chroma analysis
-    const { key, mode } = this.detectKeyAndMode(channelData, sampleRate);
-    
-    // Calculate other audio features
-    const energy = this.calculateEnergy(channelData);
-    const danceability = this.calculateDanceability(channelData, sampleRate, tempo);
-    const valence = this.calculateValence(channelData);
-    const acousticness = this.calculateAcousticness(channelData);
-    const instrumentalness = this.calculateInstrumentalness(channelData);
-    const liveness = this.calculateLiveness(channelData);
-    const speechiness = this.calculateSpeechiness(channelData);
-    
-    return {
-      tempo: Math.round(tempo),
-      key,
-      mode,
-      timeSignature: 4, // Default to 4/4
-      energy,
-      danceability,
-      valence,
-      acousticness,
-      instrumentalness,
-      liveness,
-      speechiness
-    };
-  }
-
-  // Calculate tempo using autocorrelation
-  private calculateTempo(audioData: Float32Array, sampleRate: number): number {
-    const minBPM = 60;
-    const maxBPM = 200;
-    const minPeriod = Math.floor(60 * sampleRate / maxBPM);
-    const maxPeriod = Math.floor(60 * sampleRate / minBPM);
-    
-    let bestPeriod = minPeriod;
-    let bestCorrelation = 0;
-    
-    for (let period = minPeriod; period < maxPeriod; period++) {
-      let correlation = 0;
-      for (let i = 0; i < audioData.length - period; i++) {
-        correlation += audioData[i] * audioData[i + period];
-      }
-      
-      if (correlation > bestCorrelation) {
-        bestCorrelation = correlation;
-        bestPeriod = period;
-      }
-    }
-    
-    return 60 * sampleRate / bestPeriod;
-  }
-
-  // Detect key and mode using chroma analysis
-  private detectKeyAndMode(audioData: Float32Array, sampleRate: number): { key: string; mode: string } {
-    // Simplified key detection - in a real implementation, this would use FFT and chroma analysis
-    const keys = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
-    const modes = ['major', 'minor'];
-    
-    // For demo purposes, return a random key
-    const randomKey = keys[Math.floor(Math.random() * keys.length)];
-    const randomMode = modes[Math.floor(Math.random() * modes.length)];
-    
-    return { key: randomKey, mode: randomMode };
-  }
-
-  // Calculate energy (RMS)
-  private calculateEnergy(audioData: Float32Array): number {
-    let sum = 0;
-    for (let i = 0; i < audioData.length; i++) {
-      sum += audioData[i] * audioData[i];
-    }
-    return Math.sqrt(sum / audioData.length);
-  }
-
-  // Calculate danceability based on rhythm and tempo
-  private calculateDanceability(audioData: Float32Array, sampleRate: number, tempo: number): number {
-    // Simplified danceability calculation
-    const energy = this.calculateEnergy(audioData);
-    const tempoFactor = Math.min(1, tempo / 120); // Optimal around 120 BPM
-    return Math.min(1, (energy + tempoFactor) / 2);
-  }
-
-  // Calculate valence (musical positivity)
-  private calculateValence(audioData: Float32Array): number {
-    // Simplified valence calculation based on spectral centroid
-    const energy = this.calculateEnergy(audioData);
-    return Math.min(1, energy * 1.5); // Higher energy = more positive
-  }
-
-  // Calculate acousticness
-  private calculateAcousticness(audioData: Float32Array): number {
-    // Simplified acousticness - lower energy = more acoustic
-    const energy = this.calculateEnergy(audioData);
-    return Math.max(0, 1 - energy * 2);
-  }
-
-  // Calculate instrumentalness
-  private calculateInstrumentalness(audioData: Float32Array): number {
-    // Simplified instrumentalness - would need voice detection in real implementation
-    return Math.random() * 0.3; // Most songs have some vocals
-  }
-
-  // Calculate liveness
-  private calculateLiveness(audioData: Float32Array): number {
-    // Simplified liveness - would need audience noise detection
-    return Math.random() * 0.2; // Most recordings are studio
-  }
-
-  // Calculate speechiness
-  private calculateSpeechiness(audioData: Float32Array): number {
-    // Simplified speechiness - would need speech detection
-    return Math.random() * 0.1; // Most songs have low speechiness
-  }
-
-  // Create audio fingerprint for matching
-  private async createAudioFingerprint(audioBlob: Blob): Promise<string> {
-    const arrayBuffer = await audioBlob.arrayBuffer();
-    const audioBuffer = await this.audioContext!.decodeAudioData(arrayBuffer);
-    
-    // Get audio data and create a simple hash
-    const channelData = audioBuffer.getChannelData(0);
-    const sampleSize = Math.min(1000, channelData.length); // Sample first 1000 points
-    const samples = channelData.slice(0, sampleSize);
-    
-    // Create a simple hash from the samples
-    let hash = 0;
-    for (let i = 0; i < samples.length; i++) {
-      hash = ((hash << 5) - hash + samples[i] * 1000) & 0xffffffff;
-    }
-    
-    return hash.toString(16);
-  }
-
-  // Search for song using audio features
-  private async searchByFeatures(features: AudioFeatures): Promise<SongMatch | null> {
-    // In a real implementation, this would query a music database
-    // For now, we'll simulate based on the features
-    
-    // Check if the audio has characteristics of a real song
-    const isLikelySong = this.isLikelySong(features);
-    
-    if (!isLikelySong) {
-      return null; // Not a song
-    }
-    
-    // Simulate finding a match based on features
-    const confidence = this.calculateMatchConfidence(features);
-    
-    if (confidence < 0.3) {
-      return null; // Confidence too low
-    }
-    
-    // Return a simulated match
-    return this.generateSimulatedMatch(features, confidence);
-  }
-
-  // Check if audio features suggest it's a real song
-  private isLikelySong(features: AudioFeatures): boolean {
-    // A real song should have:
-    // - Reasonable tempo (60-200 BPM)
-    // - Some energy
-    // - Not too much speechiness
-    // - Reasonable danceability
-    
-    const hasReasonableTempo = features.tempo >= 60 && features.tempo <= 200;
-    const hasEnergy = features.energy > 0.1;
-    const notTooMuchSpeech = features.speechiness < 0.5;
-    const hasRhythm = features.danceability > 0.1;
-    
-    return hasReasonableTempo && hasEnergy && notTooMuchSpeech && hasRhythm;
-  }
-
-  // Calculate match confidence
-  private calculateMatchConfidence(features: AudioFeatures): number {
-    // Higher confidence for songs with typical characteristics
-    let confidence = 0.5; // Base confidence
-    
-    // Tempo in typical range
-    if (features.tempo >= 80 && features.tempo <= 140) {
-      confidence += 0.2;
-    }
-    
-    // Good energy level
-    if (features.energy >= 0.3 && features.energy <= 0.8) {
-      confidence += 0.15;
-    }
-    
-    // Good danceability
-    if (features.danceability >= 0.3) {
-      confidence += 0.1;
-    }
-    
-    // Low speechiness (more musical)
-    if (features.speechiness < 0.2) {
-      confidence += 0.05;
-    }
-    
-    return Math.min(1, confidence);
-  }
-
-  // Generate a simulated match based on features
-  private generateSimulatedMatch(features: AudioFeatures, confidence: number): SongMatch {
-    // Generate a realistic song based on the features
-    const songs = this.getSongDatabase();
-    const matchingSongs = songs.filter(song => 
-      Math.abs(song.tempo - features.tempo) < 20 &&
-      Math.abs(song.energy - features.energy) < 0.3
+  // Generate HMAC signature for ACRCloud API
+  private async generateSignature(data: string, timestamp: number): Promise<string> {
+    const message = `POST\n${this.ACRCLOUD_ENDPOINT}\n${this.ACCESS_KEY}\naudio\n1\n${timestamp}`;
+    const encoder = new TextEncoder();
+    const key = await crypto.subtle.importKey(
+      'raw',
+      encoder.encode(this.ACCESS_SECRET),
+      { name: 'HMAC', hash: 'SHA-1' },
+      false,
+      ['sign']
     );
-    
-    if (matchingSongs.length > 0) {
-      const song = matchingSongs[Math.floor(Math.random() * matchingSongs.length)];
-      return {
-        title: song.title,
-        artists: song.artists,
-        album: song.album,
-        release_date: song.release_date,
-        confidence,
-        preview_url: song.preview_url,
-        external_urls: song.external_urls,
-        audio_features: features
+    const signature = await crypto.subtle.sign('HMAC', key, encoder.encode(message));
+    return btoa(String.fromCharCode(...new Uint8Array(signature)));
+  }
+
+  // Convert audio blob to base64 for ACRCloud API
+  private async audioToBase64(audioBlob: Blob): Promise<string> {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        const base64 = result.split(',')[1]; // Remove data:audio/wav;base64, prefix
+        resolve(base64);
       };
+      reader.onerror = reject;
+      reader.readAsDataURL(audioBlob);
+    });
+  }
+
+  // Call ACRCloud API for song recognition
+  private async callACRCloudAPI(audioBlob: Blob): Promise<any> {
+    if (!this.ACCESS_KEY || !this.ACCESS_SECRET) {
+      throw new Error('ACRCloud API credentials not configured. Please set VITE_ACRCLOUD_ACCESS_KEY and VITE_ACRCLOUD_ACCESS_SECRET environment variables.');
     }
+
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = await this.generateSignature('', timestamp);
+    const audioBase64 = await this.audioToBase64(audioBlob);
+
+    const formData = new FormData();
+    formData.append('sample', audioBase64);
+    formData.append('sample_bytes', audioBlob.size.toString());
+    formData.append('access_key', this.ACCESS_KEY);
+    formData.append('data_type', 'audio');
+    formData.append('signature_version', '1');
+    formData.append('signature', signature);
+    formData.append('timestamp', timestamp.toString());
+
+    const response = await fetch(`https://${this.ACRCLOUD_HOST}${this.ACRCLOUD_ENDPOINT}`, {
+      method: 'POST',
+      body: formData,
+    });
+
+    if (!response.ok) {
+      throw new Error(`ACRCloud API error: ${response.status} ${response.statusText}`);
+    }
+
+    return await response.json();
+  }
+
+  // Parse ACRCloud response to our format
+  private parseACRCloudResponse(acrResponse: any): SongMatch | null {
+    if (acrResponse.status?.code !== 0 || !acrResponse.metadata?.music?.[0]) {
+      return null;
+    }
+
+    const music = acrResponse.metadata.music[0];
     
-    // Fallback to a random song
-    const randomSong = songs[Math.floor(Math.random() * songs.length)];
     return {
-      title: randomSong.title,
-      artists: randomSong.artists,
-      album: randomSong.album,
-      release_date: randomSong.release_date,
-      confidence: confidence * 0.7, // Lower confidence for random match
-      preview_url: randomSong.preview_url,
-      external_urls: randomSong.external_urls,
-      audio_features: features
+      title: music.title || 'Unknown Title',
+      artists: music.artists?.map((artist: any) => ({ name: artist.name })) || [{ name: 'Unknown Artist' }],
+      album: { name: music.album?.name || 'Unknown Album' },
+      release_date: music.release_date || '',
+      confidence: (acrResponse.metadata.music[0].score || 0) / 100,
+      preview_url: music.external_metadata?.youtube?.vid ? 
+        `https://www.youtube.com/watch?v=${music.external_metadata.youtube.vid}` : undefined,
+      external_urls: {
+        spotify: music.external_metadata?.spotify?.track?.id ? 
+          `https://open.spotify.com/track/${music.external_metadata.spotify.track.id}` : undefined,
+        youtube: music.external_metadata?.youtube?.vid ? 
+          `https://www.youtube.com/watch?v=${music.external_metadata.youtube.vid}` : undefined,
+      }
     };
   }
 
-  // Get a database of songs with their features
-  private getSongDatabase() {
-    return [
-      {
-        title: "Blinding Lights",
-        artists: [{ name: "The Weeknd" }],
-        album: { name: "After Hours" },
-        release_date: "2019",
-        tempo: 171,
-        energy: 0.73,
-        preview_url: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav",
-        external_urls: {
-          spotify: "https://open.spotify.com/track/0VjIjW4WU0zT9jWhnqM9IR",
-          youtube: "https://youtube.com/watch?v=4fndeDfaWCg"
-        }
-      },
-      {
-        title: "Levitating",
-        artists: [{ name: "Dua Lipa" }],
-        album: { name: "Future Nostalgia" },
-        release_date: "2020",
-        tempo: 103,
-        energy: 0.68,
-        preview_url: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav",
-        external_urls: {
-          spotify: "https://open.spotify.com/track/463CkQjx2Zk1yXoBuierM9",
-          youtube: "https://youtube.com/watch?v=TUVcZfQe-Kw"
-        }
-      },
-      {
-        title: "Watermelon Sugar",
-        artists: [{ name: "Harry Styles" }],
-        album: { name: "Fine Line" },
-        release_date: "2020",
-        tempo: 95,
-        energy: 0.61,
-        preview_url: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav",
-        external_urls: {
-          spotify: "https://open.spotify.com/track/6UelLqGlWMcVH1E5c4H7lY",
-          youtube: "https://youtube.com/watch?v=E07s5ZYygMg"
-        }
-      },
-      {
-        title: "Good 4 U",
-        artists: [{ name: "Olivia Rodrigo" }],
-        album: { name: "SOUR" },
-        release_date: "2021",
-        tempo: 166,
-        energy: 0.78,
-        preview_url: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav",
-        external_urls: {
-          spotify: "https://open.spotify.com/track/4ZtFanR9U6ndgddUvNcjcG",
-          youtube: "https://youtube.com/watch?v=gNi_6U5Pm_o"
-        }
-      },
-      {
-        title: "Stay",
-        artists: [{ name: "The Kid LAROI" }, { name: "Justin Bieber" }],
-        album: { name: "F*CK LOVE 3: OVER YOU" },
-        release_date: "2021",
-        tempo: 169,
-        energy: 0.65,
-        preview_url: "https://www.soundjay.com/misc/sounds/bell-ringing-05.wav",
-        external_urls: {
-          spotify: "https://open.spotify.com/track/5PjdY0CKGZdEuoNab3yDmX",
-          youtube: "https://youtube.com/watch?v=kTJczUoc26U"
-        }
-      }
-    ];
-  }
 
-  // Main recognition method
-  async recognizeSong(audioBlob: Blob, method: 'fingerprint' | 'acrcloud' | 'shazam' = 'fingerprint'): Promise<RecognitionResult> {
+  // Main recognition method using ACRCloud API
+  async recognizeSong(audioBlob: Blob, method: 'acrcloud' = 'acrcloud'): Promise<RecognitionResult> {
     const startTime = Date.now();
     
     try {
-      await this.initAudioContext();
+      // Call ACRCloud API for real song recognition
+      const acrResponse = await this.callACRCloudAPI(audioBlob);
       
-      // Extract audio features
-      const features = await this.extractAudioFeatures(audioBlob);
-      
-      // Search for matches
-      const match = await this.searchByFeatures(features);
+      // Parse the response
+      const match = this.parseACRCloudResponse(acrResponse);
       
       const processingTime = Date.now() - startTime;
       
@@ -403,7 +168,7 @@ class RealSongRecognitionService {
       } else {
         return {
           success: false,
-          error: "No matching song found. The audio might not be a recognizable song.",
+          error: "No matching song found. Try humming or singing more clearly, or the song might not be in the database.",
           processing_time: processingTime,
           method
         };
@@ -411,9 +176,24 @@ class RealSongRecognitionService {
       
     } catch (error) {
       const processingTime = Date.now() - startTime;
+      
+      // Provide helpful error messages based on the error type
+      let errorMessage = 'Recognition failed: ';
+      if (error instanceof Error) {
+        if (error.message.includes('credentials')) {
+          errorMessage += 'API credentials not configured. Please contact the administrator.';
+        } else if (error.message.includes('network') || error.message.includes('fetch')) {
+          errorMessage += 'Network error. Please check your internet connection and try again.';
+        } else {
+          errorMessage += error.message;
+        }
+      } else {
+        errorMessage += 'Unknown error occurred.';
+      }
+      
       return {
         success: false,
-        error: `Recognition failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        error: errorMessage,
         processing_time: processingTime,
         method
       };
