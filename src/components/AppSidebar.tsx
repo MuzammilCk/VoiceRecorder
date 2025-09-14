@@ -7,7 +7,6 @@ import {
   Users,
   FileText,
   Music, // Added the Music icon
-  Gamepad2 // Added the Gamepad icon for Dino game
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -28,7 +27,6 @@ import {
 const navigationItems = [
   { title: "Voice Studio", url: "/", icon: Mic },
   { title: "Song Search", url: "/song-search", icon: Music },
-  { title: "Dino Game", url: "/dino-game", icon: Gamepad2 },
   { title: "My Recordings", url: "/recordings", icon: FolderOpen },
   { title: "Transcripts", url: "/transcripts", icon: FileText },
 ];

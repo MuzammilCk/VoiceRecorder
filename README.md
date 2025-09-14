@@ -28,12 +28,6 @@ This is a sophisticated voice recorder web application that combines traditional
 - Professional audio visualization
 - Real-time status indicators
 
-### 🎮 **Voice-Controlled Dino Game** ⭐ **NEW FEATURE**
-- Interactive endless runner game controlled by voice commands
-- Web Speech API integration for real-time voice recognition
-- Jump and duck mechanics with collision detection
-- High score tracking and game state management
-- Educational demonstration of voice-controlled interfaces
 
 ### 📊 **Data Management**
 - Local storage of recordings and transcripts
@@ -115,7 +109,6 @@ English (US/UK), Spanish, French, German, Italian, Portuguese, Russian, Japanese
 ## 📖 Documentation
 
 - [Transcription Guide](TRANSCRIPTION_GUIDE.md) - Comprehensive guide to transcription features
-- [Dino Game Guide](DINO_GAME_GUIDE.md) - Complete guide to the voice-controlled Dino game
 - [Demo Instructions](DEMO_INSTRUCTIONS.md) - Step-by-step demo script for presentations
 
 ## 🎓 Academic Value

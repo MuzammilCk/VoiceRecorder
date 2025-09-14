@@ -1,14 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
-import { Mic, Square, Play, Pause, Download, Trash2, Loader2, Settings, Key, Eye, EyeOff } from 'lucide-react';
+import { Badge } from '@/components/ui/badge';
+import { Mic, Square, Play, Pause, Download, Trash2, Loader2 } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
 import { LanguageSelector } from './LanguageSelector';
 import { Recording } from '@/App'; // Import the shared Recording type
 import { Input } from '@/components/ui/input'; // Import the Input component
-import { Label } from '@/components/ui/label';
-import { Switch } from '@/components/ui/switch';
 import { transcriptionService, TranscriptionResult } from '@/lib/transcription';
 
 // Add this interface to your component file to make TypeScript happy with the Web Speech API
@@ -42,8 +41,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
   const [useAssemblyAI, setUseAssemblyAI] = useState(true); // Default to AssemblyAI
   const [transcriptionError, setTranscriptionError] = useState('');
   const [debugInfo, setDebugInfo] = useState('');
-  const [showSettings, setShowSettings] = useState(false);
-  const [showApiKey, setShowApiKey] = useState(false);
 
   const mediaRecorderRef = useRef<MediaRecorder | null>(null);
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -162,16 +159,25 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
           // Use AssemblyAI for high-quality transcription
           try {
             console.log('Starting AssemblyAI transcription...');
-            const result = await transcriptionService.transcribeWithAssemblyAI(
+            
+            // Add timeout and better error handling
+            const timeoutPromise = new Promise((_, reject) => {
+              setTimeout(() => reject(new Error('AssemblyAI timeout after 5 minutes')), 300000);
+            });
+            
+            const transcriptionPromise = transcriptionService.transcribeWithAssemblyAI(
               blob,
               language.split('-')[0], // Convert 'en-US' to 'en'
               (stage, status) => {
                 console.log(`AssemblyAI: ${stage}`, status);
-                // You could update UI here with progress
+                setDebugInfo(`AssemblyAI: ${stage}`);
               }
             );
             
+            const result = await Promise.race([transcriptionPromise, timeoutPromise]) as TranscriptionResult;
+            
             if (result.error) {
+              console.error('AssemblyAI error:', result.error);
               setTranscriptionError(result.error);
               toast({ 
                 title: "AssemblyAI Transcription Error", 
@@ -179,22 +185,28 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
                 variant: "destructive" 
               });
               finalTranscript = transcriptRef.current.trim() || 'Transcription failed, but recording saved.';
-            } else {
+            } else if (result.transcript) {
               finalTranscript = result.transcript;
+              console.log('AssemblyAI transcription successful:', finalTranscript.substring(0, 100) + '...');
               toast({ 
                 title: "Transcription Complete", 
                 description: "Audio transcribed successfully with AssemblyAI" 
               });
+            } else {
+              throw new Error('No transcript returned from AssemblyAI');
             }
           } catch (error) {
-            const errorMsg = `AssemblyAI transcription failed: ${error}`;
+            const errorMsg = `AssemblyAI transcription failed: ${error instanceof Error ? error.message : String(error)}`;
+            console.error('AssemblyAI error:', error);
             setTranscriptionError(errorMsg);
             toast({ 
               title: "Transcription Error", 
-              description: errorMsg, 
+              description: "AssemblyAI failed. Recording saved without transcription.", 
               variant: "destructive" 
             });
             finalTranscript = transcriptRef.current.trim() || 'Transcription failed, but recording saved.';
+          } finally {
+            setDebugInfo('');
           }
         } else if (useWhisper && whisperApiKey.trim()) {
           // Use Whisper API for post-processing transcription
@@ -420,15 +432,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
                 <Mic className="h-8 w-8" />
               )}
             </Button>
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => setShowSettings(!showSettings)}
-              disabled={isRecording}
-              className="h-10 w-10 rounded-full"
-            >
-              <Settings className="h-4 w-4" />
-            </Button>
           </div>
         </div>
       </Card>
@@ -452,173 +455,14 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
               <p className="text-sm text-red-600">{transcriptionError}</p>
             </div>
           )}
+          {debugInfo && (
+            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+              <p className="text-sm text-blue-600">{debugInfo}</p>
+            </div>
+          )}
         </Card>
       )}
 
-      {showSettings && (
-        <Card className="glass border-border/50 p-6">
-          <div className="space-y-6">
-            <div className="flex items-center gap-2">
-              <Settings className="h-5 w-5" />
-              <h3 className="text-lg font-semibold">Transcription Settings</h3>
-            </div>
-
-            {/* Transcription Method Toggle */}
-            <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="space-y-1">
-                  <Label className="text-base font-medium">Transcription Method</Label>
-                  <p className="text-sm text-muted-foreground">
-                    Choose your preferred transcription service
-                  </p>
-                </div>
-              </div>
-
-              <div className="space-y-3">
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">Browser Speech Recognition</span>
-                      <Badge variant="secondary">Free</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      Real-time transcription using your browser
-                    </p>
-                  </div>
-                  <Switch
-                    checked={!useWhisper && !useAssemblyAI}
-                    onCheckedChange={(checked) => {
-                      if (checked) {
-                        setUseWhisper(false);
-                        setUseAssemblyAI(false);
-                      }
-                    }}
-                    disabled={isRecording}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">AssemblyAI</span>
-                      <Badge variant="default">Recommended</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      High-accuracy AI transcription (built-in)
-                    </p>
-                  </div>
-                  <Switch
-                    checked={useAssemblyAI}
-                    onCheckedChange={(checked) => {
-                      setUseAssemblyAI(checked);
-                      if (checked) setUseWhisper(false);
-                    }}
-                    disabled={isRecording}
-                  />
-                </div>
-
-                <div className="flex items-center justify-between p-3 border rounded-lg">
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium">OpenAI Whisper</span>
-                      <Badge variant="outline">Premium</Badge>
-                    </div>
-                    <p className="text-sm text-muted-foreground">
-                      High-accuracy AI transcription (requires API key)
-                    </p>
-                  </div>
-                  <Switch
-                    checked={useWhisper}
-                    onCheckedChange={(checked) => {
-                      setUseWhisper(checked);
-                      if (checked) setUseAssemblyAI(false);
-                    }}
-                    disabled={isRecording}
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Whisper API Key Configuration */}
-            {useWhisper && (
-              <div className="space-y-3">
-                <Label htmlFor="api-key" className="flex items-center gap-2">
-                  <Key className="h-4 w-4" />
-                  OpenAI API Key
-                </Label>
-                <div className="space-y-2">
-                  <div className="flex gap-2">
-                    <Input
-                      id="api-key"
-                      type={showApiKey ? "text" : "password"}
-                      placeholder="sk-..."
-                      value={whisperApiKey}
-                      onChange={(e) => setWhisperApiKey(e.target.value)}
-                      disabled={isRecording}
-                      className="flex-1"
-                    />
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowApiKey(!showApiKey)}
-                      disabled={isRecording}
-                    >
-                      {showApiKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                    </Button>
-                  </div>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    onClick={() => window.open('https://platform.openai.com/api-keys', '_blank')}
-                    disabled={isRecording}
-                  >
-                    Get API Key
-                  </Button>
-                </div>
-                
-                <p className="text-xs text-muted-foreground">
-                  Your API key is stored locally and never sent to our servers. 
-                  Whisper API usage is charged by OpenAI based on audio duration.
-                </p>
-              </div>
-            )}
-
-            {/* Method Comparison */}
-            <div className="space-y-3">
-              <h4 className="text-sm font-medium">Transcription Methods:</h4>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3 text-xs">
-                <div className="p-3 border rounded-lg">
-                  <div className="font-medium text-green-600">Browser Speech Recognition</div>
-                  <div className="text-muted-foreground mt-1">
-                    • Free<br/>
-                    • Real-time<br/>
-                    • Works offline<br/>
-                    • Basic accuracy
-                  </div>
-                </div>
-                <div className="p-3 border rounded-lg">
-                  <div className="font-medium text-blue-600">AssemblyAI</div>
-                  <div className="text-muted-foreground mt-1">
-                    • Very high accuracy<br/>
-                    • Multiple languages<br/>
-                    • Built-in (no setup)<br/>
-                    • Fast processing
-                  </div>
-                </div>
-                <div className="p-3 border rounded-lg">
-                  <div className="font-medium text-blue-600">OpenAI Whisper</div>
-                  <div className="text-muted-foreground mt-1">
-                    • High accuracy<br/>
-                    • Multiple languages<br/>
-                    • Handles noise well<br/>
-                    • Requires API key
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
 
       {recordings.length > 0 && (
         <Card className="glass border-border/50 p-6">

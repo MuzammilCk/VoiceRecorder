@@ -8,7 +8,7 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { SongSearch } from "@/components/SongSearch"; 
-import DinoGame from "@/components/DinoGame"; 
+ 
 import NotFound from "./pages/NotFound";
 import { Card } from "@/components/ui/card";
 import { Zap } from "lucide-react";
@@ -53,7 +53,6 @@ const App = () => {
                   <Routes>
                     <Route path="/" element={<VoiceRecorder recordings={recordings} setRecordings={setRecordings} />} />
                     <Route path="/song-search" element={<SongSearch />} />
-                    <Route path="/dino-game" element={<DinoGame />} />
                     <Route path="/recordings" element={<MyRecordings recordings={recordings} setRecordings={setRecordings} />} />
                     <Route path="/transcripts" element={<Transcripts recordings={recordings} />} />
                     <Route path="*" element={<NotFound />} />
