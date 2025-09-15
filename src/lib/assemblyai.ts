@@ -41,7 +41,6 @@ class AssemblyAIService {
         method: 'POST',
         headers: {
           'authorization': this.apiKey,
-          'content-type': 'application/octet-stream',
         },
         body: audioBlob,
       });
