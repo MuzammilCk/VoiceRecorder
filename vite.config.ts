@@ -12,11 +12,15 @@ export default defineConfig(({ mode }) => {
     server: {
       host: "::",
       port: 8080,
+      hmr: {
+        overlay: false
+      },
       proxy: {
         "/hume": {
           target: "https://api.hume.ai",
           changeOrigin: true,
           secure: true,
+          timeout: 30000,
           rewrite: (path) => path.replace(/^\/hume/, ""),
           configure: (proxy) => {
             // Attach API key header for all proxied requests
@@ -25,12 +29,16 @@ export default defineConfig(({ mode }) => {
                 proxyReq.setHeader("X-Hume-Api-Key", env.VITE_HUME_API_KEY);
               }
             });
+            proxy.on("error", (err, req, res) => {
+              console.error("Hume proxy error:", err);
+            });
           },
         },
         "/assemblyai": {
           target: "https://api.assemblyai.com",
           changeOrigin: true,
           secure: true,
+          timeout: 30000,
           rewrite: (path) => path.replace(/^\/assemblyai/, "/v2"),
           configure: (proxy) => {
             proxy.on("proxyReq", (proxyReq) => {
@@ -38,13 +46,22 @@ export default defineConfig(({ mode }) => {
                 proxyReq.setHeader("authorization", env.VITE_ASSEMBLYAI_API_KEY);
               }
             });
+            proxy.on("error", (err, req, res) => {
+              console.error("AssemblyAI proxy error:", err);
+            });
           },
         },
         "/acr": {
           target: "https://identify-us-west-2.acrcloud.com",
           changeOrigin: true,
           secure: true,
+          timeout: 30000,
           rewrite: (path) => path.replace(/^\/acr/, ""),
+          configure: (proxy) => {
+            proxy.on("error", (err, req, res) => {
+              console.error("ACRCloud proxy error:", err);
+            });
+          },
         },
       },
     },
@@ -53,6 +70,9 @@ export default defineConfig(({ mode }) => {
       alias: {
         "@": path.resolve(__dirname, "./src"),
       },
+    },
+    define: {
+      global: 'globalThis',
     },
   };
 });

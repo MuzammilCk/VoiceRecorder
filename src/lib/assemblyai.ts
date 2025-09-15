@@ -31,11 +31,15 @@ class AssemblyAIService {
   // Upload audio file to AssemblyAI
   async uploadAudio(audioBlob: Blob): Promise<string> {
     if (!this.apiKey) {
+      console.warn('AssemblyAI API key not configured. Transcription will not be available.');
       throw new Error('AssemblyAI API key is required. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
     }
 
     try {
       console.log('Uploading audio to AssemblyAI...');
+      
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
       const response = await fetch(`${this.baseUrl}/upload`, {
         method: 'POST',
@@ -43,7 +47,10 @@ class AssemblyAIService {
           'authorization': this.apiKey,
         },
         body: audioBlob,
+        signal: controller.signal,
       });
+      
+      clearTimeout(timeoutId);
 
       if (!response.ok) {
         const errorText = await response.text();
@@ -54,6 +61,9 @@ class AssemblyAIService {
       console.log('Audio uploaded successfully:', data.upload_url);
       return data.upload_url;
     } catch (error) {
+      if (error instanceof Error && error.name === 'AbortError') {
+        throw new Error('Upload timeout - please try again with a shorter audio file');
+      }
       console.error('Error uploading audio:', error);
       throw new Error(`Failed to upload audio: ${error}`);
     }

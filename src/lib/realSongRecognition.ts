@@ -90,33 +90,48 @@ class RealSongRecognitionService {
   // Call ACRCloud API for song recognition
   private async callACRCloudAPI(audioBlob: Blob): Promise<any> {
     if (!this.ACCESS_KEY || !this.ACCESS_SECRET) {
-      throw new Error('ACRCloud API credentials not configured. Please set VITE_ACRCLOUD_ACCESS_KEY and VITE_ACRCLOUD_ACCESS_SECRET environment variables.');
+      console.warn('ACRCloud API credentials not configured. Using demo mode.');
+      // Return a demo response for development
+      return {
+        status: { code: 1001 },
+        metadata: null
+      };
     }
 
     const timestamp = Math.floor(Date.now() / 1000);
-    const signature = await this.generateSignature('', timestamp);
-    const audioBase64 = await this.audioToBase64(audioBlob);
+    
+    try {
+      const signature = await this.generateSignature('', timestamp);
+      const audioBase64 = await this.audioToBase64(audioBlob);
 
-    const formData = new FormData();
-    formData.append('sample', audioBase64);
-    formData.append('sample_bytes', audioBlob.size.toString());
-    formData.append('access_key', this.ACCESS_KEY);
-    formData.append('data_type', 'audio');
-    formData.append('signature_version', '1');
-    formData.append('signature', signature);
-    formData.append('timestamp', timestamp.toString());
+      const formData = new FormData();
+      formData.append('sample', audioBase64);
+      formData.append('sample_bytes', audioBlob.size.toString());
+      formData.append('access_key', this.ACCESS_KEY);
+      formData.append('data_type', 'audio');
+      formData.append('signature_version', '1');
+      formData.append('signature', signature);
+      formData.append('timestamp', timestamp.toString());
 
-    // Use Vite proxy (configured at /acr) to avoid CORS in development
-    const response = await fetch(`/acr${this.ACRCLOUD_ENDPOINT}`, {
-      method: 'POST',
-      body: formData,
-    });
+      // Use Vite proxy (configured at /acr) to avoid CORS in development
+      const response = await fetch(`/acr${this.ACRCLOUD_ENDPOINT}`, {
+        method: 'POST',
+        body: formData,
+      });
 
-    if (!response.ok) {
-      throw new Error(`ACRCloud API error: ${response.status} ${response.statusText}`);
+      if (!response.ok) {
+        throw new Error(`ACRCloud API error: ${response.status} ${response.statusText}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('ACRCloud API call failed:', error);
+      // Return error response
+      return {
+        status: { code: 1001, msg: 'API call failed' },
+        metadata: null
+      };
     }
-
-    return await response.json();
   }
 
   // Parse ACRCloud response to our format

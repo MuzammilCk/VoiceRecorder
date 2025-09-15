@@ -160,34 +160,46 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
           try {
             console.log('Starting AssemblyAI transcription...');
             
-            const result = await transcriptionService.transcribeWithAssemblyAI(
-              blob,
-              language.split('-')[0], // Convert 'en-US' to 'en'
-              (stage, status) => {
-                console.log(`AssemblyAI: ${stage}`, status);
-                setDebugInfo(`AssemblyAI: ${stage}`);
+            try {
+              const result = await transcriptionService.transcribeWithAssemblyAI(
+                blob,
+                language.split('-')[0], // Convert 'en-US' to 'en'
+                (stage, status) => {
+                  console.log(`AssemblyAI: ${stage}`, status);
+                  setDebugInfo(`AssemblyAI: ${stage}`);
+                }
+              );
+              
+              if (result.error) {
+                console.error('AssemblyAI error:', result.error);
+                setTranscriptionError(result.error);
+                toast({ 
+                  title: "AssemblyAI Transcription Error", 
+                  description: result.error, 
+                  variant: "destructive" 
+                });
+                finalTranscript = transcriptRef.current.trim() || 'Transcription failed, but recording saved.';
+              } else if (result.transcript) {
+                finalTranscript = result.transcript;
+                console.log('AssemblyAI transcription successful:', finalTranscript.substring(0, 100) + '...');
+                toast({ 
+                  title: "Transcription Complete", 
+                  description: "Audio transcribed successfully with AssemblyAI" 
+                });
+              } else {
+                throw new Error('No transcript returned from AssemblyAI');
               }
-            );
-            
-            if (result.error) {
-              console.error('AssemblyAI error:', result.error);
-              setTranscriptionError(result.error);
+            } catch (assemblyError) {
+              console.error('AssemblyAI service error:', assemblyError);
+              setTranscriptionError('AssemblyAI service temporarily unavailable');
+              finalTranscript = transcriptRef.current.trim() || 'Transcription failed, but recording saved.';
               toast({ 
-                title: "AssemblyAI Transcription Error", 
-                description: result.error, 
+                title: "Transcription Service Error", 
+                description: "AssemblyAI is temporarily unavailable. Recording saved without transcription.", 
                 variant: "destructive" 
               });
-              finalTranscript = transcriptRef.current.trim() || 'Transcription failed, but recording saved.';
-            } else if (result.transcript) {
-              finalTranscript = result.transcript;
-              console.log('AssemblyAI transcription successful:', finalTranscript.substring(0, 100) + '...');
-              toast({ 
-                title: "Transcription Complete", 
-                description: "Audio transcribed successfully with AssemblyAI" 
-              });
-            } else {
-              throw new Error('No transcript returned from AssemblyAI');
             }
+            
           } catch (error) {
             console.error('AssemblyAI error:', error);
             setTranscriptionError('AssemblyAI API not configured or failed');
@@ -198,26 +210,37 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
         } else if (useWhisper && whisperApiKey.trim()) {
           // Use Whisper API for post-processing transcription
           try {
-            const result = await transcriptionService.transcribeWithWhisper(
-              blob,
-              whisperApiKey,
-              language.split('-')[0]
-            );
-            
-            if (result.error) {
-              setTranscriptionError(result.error);
+            try {
+              const result = await transcriptionService.transcribeWithWhisper(
+                blob,
+                whisperApiKey,
+                language.split('-')[0]
+              );
+              
+              if (result.error) {
+                setTranscriptionError(result.error);
+                toast({ 
+                  title: "Transcription Error", 
+                  description: result.error, 
+                  variant: "destructive" 
+                });
+              } else {
+                finalTranscript = result.transcript;
+                toast({ 
+                  title: "Transcription Complete", 
+                  description: "Audio transcribed successfully with Whisper" 
+                });
+              }
+            } catch (whisperError) {
+              console.error('Whisper service error:', whisperError);
+              setTranscriptionError('Whisper API temporarily unavailable');
               toast({ 
-                title: "Transcription Error", 
-                description: result.error, 
+                title: "Whisper Service Error", 
+                description: "Whisper API is temporarily unavailable. Recording saved without transcription.", 
                 variant: "destructive" 
               });
-            } else {
-              finalTranscript = result.transcript;
-              toast({ 
-                title: "Transcription Complete", 
-                description: "Audio transcribed successfully with Whisper" 
-              });
             }
+            
           } catch (error) {
             setTranscriptionError(`Whisper transcription failed: ${error}`);
             toast({ 

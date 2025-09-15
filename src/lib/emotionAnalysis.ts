@@ -49,40 +49,50 @@ class EmotionAnalysisService {
   // Analyze emotion using Hume AI API
   async analyzeWithHume(audioBlob: Blob): Promise<EmotionAnalysisResult> {
     if (!this.humeApiKey) {
-      throw new Error('Hume AI API key is required');
+      console.warn('Hume AI API key not configured. Using local analysis instead.');
+      return this.analyzeLocally(audioBlob);
     }
 
     try {
       const formData = new FormData();
       formData.append('file', audioBlob, 'audio.webm');
 
-      // Use Vite proxy to avoid CORS and attach API key server-side
-      const response = await fetch('/hume/v0/batch/jobs', {
-        method: 'POST',
-        headers: {
-          // Header also added by dev proxy; keeping here for completeness in non-dev builds
-          'X-Hume-Api-Key': this.humeApiKey,
-        },
-        body: formData,
-      });
-
-      if (!response.ok) {
-        throw new Error(`Hume AI API error: ${response.status} ${response.statusText}`);
-      }
-
-      const result = await response.json();
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
       
-      // Process Hume AI response
-      return this.processHumeResponse(result);
+      try {
+        // Use Vite proxy to avoid CORS and attach API key server-side
+        const response = await fetch('/hume/v0/batch/jobs', {
+          method: 'POST',
+          headers: {
+            // Header also added by dev proxy; keeping here for completeness in non-dev builds
+            'X-Hume-Api-Key': this.humeApiKey,
+          },
+          body: formData,
+          signal: controller.signal,
+        });
+        
+        clearTimeout(timeoutId);
+
+        if (!response.ok) {
+          throw new Error(`Hume AI API error: ${response.status} ${response.statusText}`);
+        }
+
+        const result = await response.json();
+        
+        // Process Hume AI response
+        return this.processHumeResponse(result);
+      } catch (fetchError) {
+        if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+          throw new Error('Hume AI request timeout - please try again');
+        }
+        throw fetchError;
+      }
     } catch (error) {
       console.error('Hume AI analysis failed:', error);
-      return {
-        emotions: [],
-        dominantEmotion: 'unknown',
-        confidence: 0,
-        provider: 'error',
-        error: error instanceof Error ? error.message : 'Unknown error'
-      };
+      // Fallback to local analysis if Hume AI fails
+      console.log('Falling back to local emotion analysis...');
+      return this.analyzeLocally(audioBlob);
     }
   }
 

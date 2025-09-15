@@ -198,27 +198,40 @@ export const SongSearch: React.FC = () => {
       // Use real recognition service directly without fake delays
       setRecognitionProgress({ stage: 'searching', progress: 50, message: `Searching ${getMethodName(selectedMethod)} database...` });
       
-      const result: RecognitionResult = await realSongRecognitionService.recognizeSong(audioBlob, selectedMethod);
-      
-      setRecognitionProgress({ stage: 'complete', progress: 100, message: 'Recognition complete' });
-      
-      if (result.success && result.match) {
-        setSearchResult(result.match);
-        saveSearchHistory(result.match, selectedMethod, recordingDuration);
-        toast({ 
-          title: "🎵 Song Found!", 
-          description: `${result.match.title} by ${result.match.artists[0].name} (${Math.round(result.confidence! * 100)}% confidence)` 
-        });
-      } else {
+      try {
+        const result: RecognitionResult = await realSongRecognitionService.recognizeSong(audioBlob, selectedMethod);
+        
+        setRecognitionProgress({ stage: 'complete', progress: 100, message: 'Recognition complete' });
+        
+        if (result.success && result.match) {
+          setSearchResult(result.match);
+          saveSearchHistory(result.match, selectedMethod, recordingDuration);
+          toast({ 
+            title: "🎵 Song Found!", 
+            description: `${result.match.title} by ${result.match.artists[0].name} (${Math.round(result.confidence! * 100)}% confidence)` 
+          });
+        } else {
+          setSearchResult(null);
+          setLastError(result.error || "No matching song found");
+          saveSearchHistory(null, selectedMethod, recordingDuration);
+          toast({ 
+            title: "No Match Found", 
+            description: result.error || "The audio might not be a recognizable song. Try humming or singing more clearly.", 
+            variant: "destructive" 
+          });
+        }
+      } catch (recognitionError) {
+        console.error("Recognition service error:", recognitionError);
         setSearchResult(null);
-        setLastError(result.error || "No matching song found");
+        setLastError(recognitionError instanceof Error ? recognitionError.message : "Recognition service failed");
         saveSearchHistory(null, selectedMethod, recordingDuration);
         toast({ 
-          title: "No Match Found", 
-          description: result.error || "The audio might not be a recognizable song. Try humming or singing more clearly.", 
+          title: "Recognition Error", 
+          description: "There was a problem with the recognition service. Please try again.", 
           variant: "destructive" 
         });
       }
+      
 
     } catch (error) {
       console.error("Song recognition error:", error);
