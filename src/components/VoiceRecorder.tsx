@@ -160,12 +160,7 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
           try {
             console.log('Starting AssemblyAI transcription...');
             
-            // Add timeout and better error handling
-            const timeoutPromise = new Promise((_, reject) => {
-              setTimeout(() => reject(new Error('AssemblyAI timeout after 5 minutes')), 300000);
-            });
-            
-            const transcriptionPromise = transcriptionService.transcribeWithAssemblyAI(
+            const result = await transcriptionService.transcribeWithAssemblyAI(
               blob,
               language.split('-')[0], // Convert 'en-US' to 'en'
               (stage, status) => {
@@ -173,8 +168,6 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
                 setDebugInfo(`AssemblyAI: ${stage}`);
               }
             );
-            
-            const result = await Promise.race([transcriptionPromise, timeoutPromise]) as TranscriptionResult;
             
             if (result.error) {
               console.error('AssemblyAI error:', result.error);
@@ -196,14 +189,8 @@ export const VoiceRecorder: React.FC<VoiceRecorderProps> = ({ recordings, setRec
               throw new Error('No transcript returned from AssemblyAI');
             }
           } catch (error) {
-            const errorMsg = `AssemblyAI transcription failed: ${error instanceof Error ? error.message : String(error)}`;
             console.error('AssemblyAI error:', error);
-            setTranscriptionError(errorMsg);
-            toast({ 
-              title: "Transcription Error", 
-              description: "AssemblyAI failed. Recording saved without transcription.", 
-              variant: "destructive" 
-            });
+            setTranscriptionError('AssemblyAI API not configured or failed');
             finalTranscript = transcriptRef.current.trim() || 'Transcription failed, but recording saved.';
           } finally {
             setDebugInfo('');

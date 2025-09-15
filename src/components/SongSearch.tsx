@@ -195,20 +195,12 @@ export const SongSearch: React.FC = () => {
 
   const recognizeSong = async (audioBlob: Blob) => {
     try {
-      // Show progress stages
-      setRecognitionProgress({ stage: 'processing', progress: 20, message: 'Enhancing audio quality...' });
-      await new Promise(resolve => setTimeout(resolve, 800));
+      // Use real recognition service directly without fake delays
+      setRecognitionProgress({ stage: 'searching', progress: 50, message: `Searching ${getMethodName(selectedMethod)} database...` });
       
-      setRecognitionProgress({ stage: 'analyzing', progress: 40, message: 'Analyzing audio characteristics...' });
-      await new Promise(resolve => setTimeout(resolve, 1000));
-      
-      setRecognitionProgress({ stage: 'searching', progress: 60, message: `Searching ${getMethodName(selectedMethod)} database...` });
-      await new Promise(resolve => setTimeout(resolve, 1200));
+      const result: RecognitionResult = await realSongRecognitionService.recognizeSong(audioBlob, selectedMethod);
       
       setRecognitionProgress({ stage: 'complete', progress: 100, message: 'Recognition complete' });
-
-      // Use real recognition service
-      const result: RecognitionResult = await realSongRecognitionService.recognizeSong(audioBlob, selectedMethod);
       
       if (result.success && result.match) {
         setSearchResult(result.match);
@@ -329,16 +321,11 @@ export const SongSearch: React.FC = () => {
               
               <div className="text-lg font-mono text-primary h-8">
                 {isRecording ? (
-                  <div className="space-y-1">
-                    <div>Recording... {countdown}s</div>
-                    <div className="text-sm text-muted-foreground">
-                      {formatDuration(recordingDuration)}
-                    </div>
-                  </div>
+                  formatDuration(recordingDuration)
                 ) : isSearching ? (
                   "Processing..."
                 ) : (
-                  "Ready to record"
+                  ""
                 )}
               </div>
 

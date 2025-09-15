@@ -1,145 +1,124 @@
-# Voice Recorder - Transcription Guide
+# Voice Recorder Transcription Guide
 
-## Overview
+This guide explains how to set up and use the transcription features in the Voice Recorder application.
 
-This voice recorder application now includes comprehensive transcription capabilities with multiple options for converting speech to text. The transcription system supports both real-time and post-processing transcription methods.
+## Available Transcription Methods
 
-## Features
+### 1. Browser Speech Recognition (Free)
+- Uses the built-in Web Speech API
+- Works offline
+- Limited accuracy
+- May not work in all browsers
 
-### 🎙️ Real-time Transcription
-- Live speech-to-text conversion during recording
-- Uses browser's built-in Web Speech API
-- Supports multiple languages
-- Shows interim and final results
+### 2. AssemblyAI API (Premium)
+- High accuracy transcription with advanced features
+- Requires AssemblyAI API key
+- Costs per usage
+- Supports speaker labels, sentiment analysis, and auto highlights
 
-### 🤖 AI-Powered Transcription
-- Integration with OpenAI's Whisper API
-- High-accuracy transcription for post-processing
-- Better handling of accents and background noise
-- Supports 99+ languages
+### 3. OpenAI Whisper API (Premium)
+- High accuracy transcription
+- Requires OpenAI API key
+- Costs per usage
+- Works with all audio formats
 
-### 📝 Manual Transcription
-- Transcribe existing recordings
-- Choose between browser or Whisper methods
-- Batch transcription capabilities
-- Error handling and retry options
-
-## Getting Started
-
-### Browser-Based Transcription (Free)
-
-1. **Enable Microphone Access**: Allow microphone permissions when prompted
-2. **Select Language**: Choose your preferred language from the dropdown
-3. **Start Recording**: Click the microphone button to begin
-4. **View Live Transcript**: See real-time transcription in the transcript panel
-5. **Stop Recording**: Click the stop button to save with transcript
-
-**Supported Browsers:**
-- Chrome (recommended)
-- Edge
-- Safari
-- Firefox (limited support)
-
-### Whisper API Transcription (Premium)
-
-1. **Get API Key**: 
-   - Visit [OpenAI Platform](https://platform.openai.com/api-keys)
-   - Create an account and generate an API key
-   - Copy your API key (starts with `sk-`)
-
-2. **Configure Settings**:
-   - Click the Settings button in the voice recorder
-   - Toggle "OpenAI Whisper" to enabled
-   - Paste your API key in the provided field
-   - Test the connection
-
-3. **Record and Transcribe**:
-   - Start recording as usual
-   - The app will use Whisper for post-processing transcription
-   - Higher accuracy, especially for longer recordings
-
-## Language Support
+## Setup Instructions
 
 ### Browser Speech Recognition
-- English (US, UK)
-- Spanish (Spain, Mexico)
-- French, German, Italian
-- Portuguese (Brazil, Portugal)
-- Russian, Japanese, Korean
-- Chinese (Simplified, Traditional)
-- Arabic, Hindi, Dutch
-- And many more...
+No setup required - works out of the box in supported browsers.
 
-### Whisper API
-- Supports 99+ languages
-- Automatic language detection
-- Better accuracy for non-English languages
-- Handles accents and dialects better
+### AssemblyAI API Setup
+1. **Get API Key**: Sign up at [AssemblyAI](https://www.assemblyai.com/) and get your API key
+2. **Create .env file**: Create a `.env` file in the project root directory
+3. **Add API Key**: Add this line to your `.env` file:
+   ```
+   VITE_ASSEMBLYAI_API_KEY=your_actual_api_key_here
+   ```
+4. **Restart Server**: Restart your development server (`npm run dev`)
+5. **Test**: Try recording and check browser console for API status
 
-## Usage Tips
+### OpenAI Whisper API
+1. Get an API key from [OpenAI Platform](https://platform.openai.com/api-keys)
+2. Open the Settings tab in the Voice Recorder
+3. Enter your API key in the "OpenAI API Key" field
+4. Toggle "Use Whisper API" to enable
 
-### For Better Transcription Results:
+## Usage
 
-1. **Audio Quality**:
-   - Use a good quality microphone
-   - Minimize background noise
-   - Speak clearly and at moderate pace
-   - Maintain consistent distance from microphone
-
-2. **Language Selection**:
-   - Choose the correct language for your content
-   - For mixed-language content, use the primary language
-   - Whisper can handle some language mixing automatically
-
-3. **Recording Environment**:
-   - Record in a quiet environment
-   - Avoid echo and reverberation
-   - Use headphones to prevent feedback
-
-4. **Browser Recommendations**:
-   - Chrome provides the best browser-based transcription
-   - Ensure you have a stable internet connection
-   - Keep your browser updated
+1. **Record Audio**: Click the record button to start recording
+2. **Stop Recording**: Click stop when finished
+3. **Automatic Transcription**: The app will automatically transcribe using your selected method
+4. **View Results**: Transcription appears in the text area below the controls
 
 ## Troubleshooting
 
-### Common Issues
+### AssemblyAI Issues
+- **"AssemblyAI API not configured"**: 
+  - Check if `.env` file exists in project root
+  - Verify `VITE_ASSEMBLYAI_API_KEY` is set correctly
+  - Restart development server after adding API key
+- **API key errors**: 
+  - Verify your AssemblyAI API key is correct and active
+  - Check your AssemblyAI account has sufficient credits
+- **Network errors**: 
+  - Check browser console for detailed error messages
+  - Verify internet connection
+  - Check if Vite proxy is working (should see `/assemblyai/*` requests)
+- **Transcription timeout**: Normal for very long audio files (>5 minutes)
 
-**"Speech recognition not supported"**
-- Use Chrome, Edge, or Safari
-- Ensure microphone permissions are granted
-- Check if your browser is updated
+### Browser Speech Recognition Issues
+- **No transcription**: Check if your browser supports Web Speech API
+- **Poor accuracy**: Try speaking more clearly or use AssemblyAI/Whisper API instead
+- **Not working**: Ensure microphone permissions are granted
 
-**"Transcription failed"**
-- Check your internet connection
-- Verify microphone is working
-- Try speaking louder or closer to microphone
-- For Whisper: verify API key is correct
+### Whisper API Issues
+- **API key errors**: Verify your OpenAI API key is correct and has credits
+- **Network errors**: Check your internet connection
+- **Slow transcription**: This is normal for longer audio files
 
-**"No transcript available"**
-- Recording might be too short
-- Audio quality might be poor
-- Try using Whisper for better results
+## Debugging Steps
 
-**Whisper API Errors**:
-- Verify API key is valid and has credits
-- Check if the audio file is in a supported format
-- Ensure the file size is within limits (25MB max)
+### For AssemblyAI Issues:
+1. **Check Console Logs**: Open browser DevTools → Console tab
+2. **Look for API Key Status**: Should see `[AssemblyAI] API key detected (length: XX)`
+3. **Monitor Network Requests**: Check Network tab for `/assemblyai/*` requests
+4. **Verify Environment**: 
+   ```bash
+   # Check if .env file exists
+   ls -la .env
+   
+   # Restart development server
+   npm run dev
+   ```
+5. **Test API Key**: The console will show detailed error messages if API calls fail
 
-### Error Messages
+### Environment File Template:
+Create `.env` file with:
+```env
+# AssemblyAI API Configuration
+VITE_ASSEMBLYAI_API_KEY=your_assemblyai_api_key_here
 
-- **"Speech recognition error: no-speech"**: No speech detected, try speaking louder
-- **"Speech recognition error: audio-capture"**: Microphone access issue
-- **"Speech recognition error: network"**: Internet connection problem
-- **"Whisper API error: invalid_api_key"**: Check your OpenAI API key
+# Other API keys (optional)
+VITE_HUME_API_KEY=your_hume_api_key_here
+VITE_ACRCLOUD_ACCESS_KEY=your_acrcloud_key_here
+VITE_ACRCLOUD_ACCESS_SECRET=your_acrcloud_secret_here
+```
+
+## Tips for Better Transcription
+
+1. **Clear Audio**: Speak clearly and avoid background noise
+2. **Good Microphone**: Use a quality microphone for better results
+3. **Quiet Environment**: Record in a quiet space
+4. **Proper Distance**: Stay 6-12 inches from the microphone
+5. **Natural Speech**: Speak at a normal pace, don't rush
 
 ## API Costs
 
-### Whisper API Pricing (as of 2024)
-- $0.006 per minute of audio
-- First 3 hours free for new users
-- Pay-as-you-go pricing
-- No monthly commitments
+- **Browser Speech Recognition**: Free
+- **AssemblyAI**: ~$0.00037 per 15-second chunk (~$0.0015 per minute)
+- **OpenAI Whisper**: ~$0.006 per minute of audio
+
+Choose the method that best fits your needs and budget.
 
 ### Browser Speech Recognition
 - Completely free
