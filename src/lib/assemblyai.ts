@@ -30,13 +30,16 @@ class AssemblyAIService {
 
   // Upload audio file to AssemblyAI
   async uploadAudio(audioBlob: Blob): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('AssemblyAI API key is required. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
+    }
+
     try {
       console.log('Uploading audio to AssemblyAI...');
       
       const response = await fetch(`${this.baseUrl}/upload`, {
         method: 'POST',
         headers: {
-          // In dev, proxy will inject the key; keep header for non-proxy builds
           'authorization': this.apiKey,
           'content-type': 'application/octet-stream',
         },
@@ -64,6 +67,10 @@ class AssemblyAIService {
     auto_highlights?: boolean;
     sentiment_analysis?: boolean;
   } = {}): Promise<string> {
+    if (!this.apiKey) {
+      throw new Error('AssemblyAI API key is required. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
+    }
+
     try {
       console.log('Submitting transcription request...');
       
@@ -102,6 +109,10 @@ class AssemblyAIService {
 
   // Get transcription result
   async getTranscription(transcriptionId: string): Promise<AssemblyAITranscriptionResult> {
+    if (!this.apiKey) {
+      throw new Error('AssemblyAI API key is required. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
+    }
+
     try {
       const response = await fetch(`${this.baseUrl}/transcript/${transcriptionId}`, {
         method: 'GET',
@@ -172,27 +183,44 @@ class AssemblyAIService {
     } = {},
     onProgress?: (stage: string, status?: string) => void
   ): Promise<AssemblyAITranscriptionResult> {
+    if (!this.apiKey) {
+      throw new Error('AssemblyAI API key is required. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
+    }
+
     try {
+      console.log('AssemblyAI transcription workflow starting...');
+      
       // Step 1: Upload audio
       onProgress?.('Uploading audio...');
       const audioUrl = await this.uploadAudio(audioBlob);
+      console.log('Audio uploaded, URL:', audioUrl);
 
       // Step 2: Submit transcription
       onProgress?.('Starting transcription...');
       const transcriptionId = await this.submitTranscription(audioUrl, options);
+      console.log('Transcription submitted, ID:', transcriptionId);
 
       // Step 3: Wait for completion
       onProgress?.('Processing transcription...');
       const result = await this.waitForTranscription(
         transcriptionId,
-        (status) => onProgress?.(`Transcription ${status}...`, status),
+        (status) => {
+          console.log('AssemblyAI status update:', status);
+          onProgress?.(`Transcription ${status}...`, status);
+        },
       );
 
+      console.log('AssemblyAI transcription completed:', result);
       onProgress?.('Transcription completed!');
       return result;
     } catch (error) {
       console.error('Complete transcription workflow failed:', error);
-      throw error;
+      // Return a proper error result instead of throwing
+      return {
+        id: '',
+        status: 'error',
+        error: error instanceof Error ? error.message : String(error)
+      };
     }
   }
 }

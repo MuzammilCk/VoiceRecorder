@@ -236,8 +236,11 @@ class TranscriptionService {
           method: 'assemblyai',
           confidence: result.confidence || 0.9
         };
+      } else if (result.status === 'error') {
+        throw new Error(result.error || 'AssemblyAI transcription failed');
       } else {
-        throw new Error(result.error || 'Transcription failed');
+        // Handle unexpected status (queued, processing, etc.)
+        throw new Error(`AssemblyAI returned unexpected status: ${result.status}. Expected 'completed'.`);
       }
     } catch (error) {
       console.error('AssemblyAI transcription error:', error);

@@ -28,10 +28,10 @@ export default defineConfig(({ mode }) => {
           },
         },
         "/assemblyai": {
-          target: "https://api.assemblyai.com/v2",
+          target: "https://api.assemblyai.com",
           changeOrigin: true,
           secure: true,
-          rewrite: (path) => path.replace(/^\/assemblyai/, ""),
+          rewrite: (path) => path.replace(/^\/assemblyai/, "/v2"),
           configure: (proxy) => {
             proxy.on("proxyReq", (proxyReq) => {
               if (env.VITE_ASSEMBLYAI_API_KEY) {
