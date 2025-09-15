@@ -27,6 +27,19 @@ export default defineConfig(({ mode }) => {
             });
           },
         },
+        "/assemblyai": {
+          target: "https://api.assemblyai.com/v2",
+          changeOrigin: true,
+          secure: true,
+          rewrite: (path) => path.replace(/^\/assemblyai/, ""),
+          configure: (proxy) => {
+            proxy.on("proxyReq", (proxyReq) => {
+              if (env.VITE_ASSEMBLYAI_API_KEY) {
+                proxyReq.setHeader("authorization", env.VITE_ASSEMBLYAI_API_KEY);
+              }
+            });
+          },
+        },
         "/acr": {
           target: "https://identify-us-west-2.acrcloud.com",
           changeOrigin: true,

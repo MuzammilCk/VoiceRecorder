@@ -14,10 +14,18 @@ export interface AssemblyAIUploadResponse {
 
 class AssemblyAIService {
   private apiKey: string;
-  private baseUrl = 'https://api.assemblyai.com/v2';
+  private baseUrl = '/assemblyai'; // via Vite proxy
 
-  constructor(apiKey: string) {
-    this.apiKey = apiKey;
+  constructor(apiKey?: string) {
+    this.apiKey = apiKey || import.meta.env.VITE_ASSEMBLYAI_API_KEY || '';
+    try {
+      const len = this.apiKey ? this.apiKey.length : 0;
+      if (len > 0) {
+        console.debug(`[AssemblyAI] API key detected (length: ${len})`);
+      } else {
+        console.warn('[AssemblyAI] No API key detected. Set VITE_ASSEMBLYAI_API_KEY in .env');
+      }
+    } catch {}
   }
 
   // Upload audio file to AssemblyAI
@@ -28,6 +36,7 @@ class AssemblyAIService {
       const response = await fetch(`${this.baseUrl}/upload`, {
         method: 'POST',
         headers: {
+          // In dev, proxy will inject the key; keep header for non-proxy builds
           'authorization': this.apiKey,
           'content-type': 'application/octet-stream',
         },
@@ -188,5 +197,5 @@ class AssemblyAIService {
   }
 }
 
-// Create service instance with your API key
-export const assemblyAIService = new AssemblyAIService('78be05aa994f4f2ea8ba728647f7fe2f');
+// Create service instance (reads VITE_ASSEMBLYAI_API_KEY from .env by default)
+export const assemblyAIService = new AssemblyAIService();
