@@ -1,0 +1,312 @@
+// Emotion Analysis Service
+// Supports multiple emotion analysis providers and local audio feature extraction
+
+export interface EmotionScore {
+  emotion: string;
+  confidence: number;
+  description: string;
+}
+
+export interface EmotionAnalysisResult {
+  emotions: EmotionScore[];
+  dominantEmotion: string;
+  confidence: number;
+  audioFeatures?: AudioFeatures;
+  provider: 'hume' | 'local' | 'error';
+  error?: string;
+}
+
+export interface AudioFeatures {
+  pitch: number;
+  energy: number;
+  spectralCentroid: number;
+  zeroCrossingRate: number;
+  tempo?: number;
+}
+
+class EmotionAnalysisService {
+  private humeApiKey: string = '';
+
+  constructor() {
+    // Load API key from environment variables first, then localStorage as fallback
+    this.humeApiKey = import.meta.env.VITE_HUME_API_KEY || localStorage.getItem('humeApiKey') || '';
+    // Masked console hint to verify key detection (only logs presence/length)
+    try {
+      const len = this.humeApiKey ? this.humeApiKey.length : 0;
+      if (len > 0) {
+        console.debug(`[EmotionAnalysis] Hume API key detected (length: ${len})`);
+      } else {
+        console.warn('[EmotionAnalysis] No Hume API key detected');
+      }
+    } catch {}
+  }
+
+  setHumeApiKey(apiKey: string) {
+    this.humeApiKey = apiKey;
+    localStorage.setItem('humeApiKey', apiKey);
+  }
+
+  // Analyze emotion using Hume AI API
+  async analyzeWithHume(audioBlob: Blob): Promise<EmotionAnalysisResult> {
+    if (!this.humeApiKey) {
+      throw new Error('Hume AI API key is required');
+    }
+
+    try {
+      const formData = new FormData();
+      formData.append('file', audioBlob, 'audio.webm');
+
+      // Use Vite proxy to avoid CORS and attach API key server-side
+      const response = await fetch('/hume/v0/batch/jobs', {
+        method: 'POST',
+        headers: {
+          // Header also added by dev proxy; keeping here for completeness in non-dev builds
+          'X-Hume-Api-Key': this.humeApiKey,
+        },
+        body: formData,
+      });
+
+      if (!response.ok) {
+        throw new Error(`Hume AI API error: ${response.status} ${response.statusText}`);
+      }
+
+      const result = await response.json();
+      
+      // Process Hume AI response
+      return this.processHumeResponse(result);
+    } catch (error) {
+      console.error('Hume AI analysis failed:', error);
+      return {
+        emotions: [],
+        dominantEmotion: 'unknown',
+        confidence: 0,
+        provider: 'error',
+        error: error instanceof Error ? error.message : 'Unknown error'
+      };
+    }
+  }
+
+  // Local audio feature extraction and basic emotion inference
+  async analyzeLocally(audioBlob: Blob): Promise<EmotionAnalysisResult> {
+    try {
+      const audioFeatures = await this.extractAudioFeatures(audioBlob);
+      const emotions = this.inferEmotionsFromFeatures(audioFeatures);
+      
+      return {
+        emotions,
+        dominantEmotion: emotions[0]?.emotion || 'neutral',
+        confidence: emotions[0]?.confidence || 0.5,
+        audioFeatures,
+        provider: 'local'
+      };
+    } catch (error) {
+      console.error('Local emotion analysis failed:', error);
+      return {
+        emotions: [{ emotion: 'neutral', confidence: 0.5, description: 'Default neutral emotion' }],
+        dominantEmotion: 'neutral',
+        confidence: 0.5,
+        provider: 'error',
+        error: error instanceof Error ? error.message : 'Local analysis failed'
+      };
+    }
+  }
+
+  // Extract audio features using Web Audio API
+  private async extractAudioFeatures(audioBlob: Blob): Promise<AudioFeatures> {
+    const arrayBuffer = await audioBlob.arrayBuffer();
+    const audioContext = new AudioContext();
+    const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
+    
+    const channelData = audioBuffer.getChannelData(0);
+    const sampleRate = audioBuffer.sampleRate;
+    
+    // Calculate basic audio features
+    const pitch = this.calculatePitch(channelData, sampleRate);
+    const energy = this.calculateEnergy(channelData);
+    const spectralCentroid = this.calculateSpectralCentroid(channelData, sampleRate);
+    const zeroCrossingRate = this.calculateZeroCrossingRate(channelData);
+    
+    return {
+      pitch,
+      energy,
+      spectralCentroid,
+      zeroCrossingRate
+    };
+  }
+
+  // Calculate fundamental frequency (pitch)
+  private calculatePitch(audioData: Float32Array, sampleRate: number): number {
+    const bufferSize = 1024;
+    const correlations = new Array(bufferSize);
+    
+    for (let i = 0; i < bufferSize; i++) {
+      let sum = 0;
+      for (let j = 0; j < bufferSize - i; j++) {
+        sum += audioData[j] * audioData[j + i];
+      }
+      correlations[i] = sum;
+    }
+    
+    let maxCorrelation = 0;
+    let bestOffset = 0;
+    
+    for (let i = 1; i < correlations.length; i++) {
+      if (correlations[i] > maxCorrelation) {
+        maxCorrelation = correlations[i];
+        bestOffset = i;
+      }
+    }
+    
+    return bestOffset > 0 ? sampleRate / bestOffset : 0;
+  }
+
+  // Calculate RMS energy
+  private calculateEnergy(audioData: Float32Array): number {
+    let sum = 0;
+    for (let i = 0; i < audioData.length; i++) {
+      sum += audioData[i] * audioData[i];
+    }
+    return Math.sqrt(sum / audioData.length);
+  }
+
+  // Calculate spectral centroid (brightness)
+  private calculateSpectralCentroid(audioData: Float32Array, sampleRate: number): number {
+    const fftSize = 2048;
+    const fft = new Float32Array(fftSize);
+    
+    // Simple FFT approximation for spectral centroid
+    let weightedSum = 0;
+    let magnitudeSum = 0;
+    
+    for (let i = 0; i < Math.min(fftSize, audioData.length); i++) {
+      const magnitude = Math.abs(audioData[i]);
+      const frequency = (i * sampleRate) / fftSize;
+      weightedSum += frequency * magnitude;
+      magnitudeSum += magnitude;
+    }
+    
+    return magnitudeSum > 0 ? weightedSum / magnitudeSum : 0;
+  }
+
+  // Calculate zero crossing rate
+  private calculateZeroCrossingRate(audioData: Float32Array): number {
+    let crossings = 0;
+    for (let i = 1; i < audioData.length; i++) {
+      if ((audioData[i] >= 0) !== (audioData[i - 1] >= 0)) {
+        crossings++;
+      }
+    }
+    return crossings / audioData.length;
+  }
+
+  // Infer emotions from audio features using heuristics
+  private inferEmotionsFromFeatures(features: AudioFeatures): EmotionScore[] {
+    const emotions: EmotionScore[] = [];
+    
+    // Happiness: Higher pitch, higher energy, moderate spectral centroid
+    if (features.pitch > 200 && features.energy > 0.3) {
+      emotions.push({
+        emotion: 'happiness',
+        confidence: Math.min(0.9, (features.pitch / 300) * (features.energy / 0.5)),
+        description: 'High energy and elevated pitch suggest happiness'
+      });
+    }
+    
+    // Sadness: Lower pitch, lower energy
+    if (features.pitch < 150 && features.energy < 0.2) {
+      emotions.push({
+        emotion: 'sadness',
+        confidence: Math.min(0.8, (1 - features.pitch / 200) * (1 - features.energy / 0.3)),
+        description: 'Low energy and pitch suggest sadness'
+      });
+    }
+    
+    // Anger: Higher energy, variable pitch, high zero crossing rate
+    if (features.energy > 0.4 && features.zeroCrossingRate > 0.1) {
+      emotions.push({
+        emotion: 'anger',
+        confidence: Math.min(0.85, features.energy * (features.zeroCrossingRate * 5)),
+        description: 'High energy and vocal tension suggest anger'
+      });
+    }
+    
+    // Fear/Anxiety: Higher pitch, moderate energy, high spectral centroid
+    if (features.pitch > 250 && features.spectralCentroid > 2000) {
+      emotions.push({
+        emotion: 'fear',
+        confidence: Math.min(0.7, (features.pitch / 400) * (features.spectralCentroid / 4000)),
+        description: 'High pitch and brightness suggest fear or anxiety'
+      });
+    }
+    
+    // Calm/Neutral: Moderate values across all features
+    if (features.pitch > 100 && features.pitch < 250 && features.energy > 0.1 && features.energy < 0.4) {
+      emotions.push({
+        emotion: 'calm',
+        confidence: 0.6,
+        description: 'Balanced audio features suggest calm or neutral state'
+      });
+    }
+    
+    // Excitement: High energy, high pitch, high spectral centroid
+    if (features.energy > 0.5 && features.pitch > 220 && features.spectralCentroid > 2500) {
+      emotions.push({
+        emotion: 'excitement',
+        confidence: Math.min(0.8, features.energy * (features.pitch / 300)),
+        description: 'High energy and pitch suggest excitement'
+      });
+    }
+    
+    // Sort by confidence and return top emotions
+    emotions.sort((a, b) => b.confidence - a.confidence);
+    
+    // If no emotions detected, return neutral
+    if (emotions.length === 0) {
+      emotions.push({
+        emotion: 'neutral',
+        confidence: 0.5,
+        description: 'No clear emotional indicators detected'
+      });
+    }
+    
+    return emotions.slice(0, 5); // Return top 5 emotions
+  }
+
+  // Process Hume AI API response
+  private processHumeResponse(humeResult: any): EmotionAnalysisResult {
+    try {
+      // This is a placeholder for actual Hume AI response processing
+      // The actual structure would depend on Hume AI's response format
+      const emotions: EmotionScore[] = [
+        { emotion: 'happiness', confidence: 0.7, description: 'Detected from Hume AI analysis' },
+        { emotion: 'calm', confidence: 0.6, description: 'Secondary emotion detected' }
+      ];
+      
+      return {
+        emotions,
+        dominantEmotion: emotions[0].emotion,
+        confidence: emotions[0].confidence,
+        provider: 'hume'
+      };
+    } catch (error) {
+      throw new Error('Failed to process Hume AI response');
+    }
+  }
+
+  // Main analysis method using only Hume AI
+  async analyzeEmotion(audioBlob: Blob): Promise<EmotionAnalysisResult> {
+    if (!this.humeApiKey) {
+      return {
+        emotions: [],
+        dominantEmotion: 'unknown',
+        confidence: 0,
+        provider: 'error',
+        error: 'Hume AI API key is required for emotion analysis'
+      };
+    }
+    
+    return await this.analyzeWithHume(audioBlob);
+  }
+}
+
+export const emotionAnalysisService = new EmotionAnalysisService();

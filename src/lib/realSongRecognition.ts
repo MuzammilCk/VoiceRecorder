@@ -106,7 +106,8 @@ class RealSongRecognitionService {
     formData.append('signature', signature);
     formData.append('timestamp', timestamp.toString());
 
-    const response = await fetch(`https://${this.ACRCLOUD_HOST}${this.ACRCLOUD_ENDPOINT}`, {
+    // Use Vite proxy (configured at /acr) to avoid CORS in development
+    const response = await fetch(`/acr${this.ACRCLOUD_ENDPOINT}`, {
       method: 'POST',
       body: formData,
     });

@@ -8,12 +8,14 @@ import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { AppSidebar } from "@/components/AppSidebar";
 import { VoiceRecorder } from "@/components/VoiceRecorder";
 import { SongSearch } from "@/components/SongSearch"; 
- 
+import { ToneAnalyzer } from "@/components/ToneAnalyzer";
+
 import NotFound from "./pages/NotFound";
 import { Card } from "@/components/ui/card";
 import { Zap } from "lucide-react";
 import MyRecordings from './components/MyRecordings';
 import Transcripts from './components/Transcripts';
+import { EmotionAnalysisResult } from '@/lib/emotionAnalysis';
 
 // Define the Recording type to be shared
 export interface Recording {
@@ -23,6 +25,7 @@ export interface Recording {
   duration: number;
   timestamp: Date;
   transcript?: string;
+  emotionAnalysis?: EmotionAnalysisResult;
 }
 
 const queryClient = new QueryClient();
@@ -53,6 +56,7 @@ const App = () => {
                   <Routes>
                     <Route path="/" element={<VoiceRecorder recordings={recordings} setRecordings={setRecordings} />} />
                     <Route path="/song-search" element={<SongSearch />} />
+                    <Route path="/tone-analyzer" element={<ToneAnalyzer recordings={recordings} />} />
                     <Route path="/recordings" element={<MyRecordings recordings={recordings} setRecordings={setRecordings} />} />
                     <Route path="/transcripts" element={<Transcripts recordings={recordings} />} />
                     <Route path="*" element={<NotFound />} />

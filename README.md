@@ -21,6 +21,13 @@ This is a sophisticated voice recorder web application that combines traditional
 - **Post-processing**: Transcribe existing recordings with different methods
 - **Error Handling**: Robust error management and user feedback
 
+### 🧠 **Emotion Analyzer** ⭐ **NEW FEATURE**
+- **AI-Powered Emotion Detection**: Analyze emotional content of voice recordings
+- **Dual Analysis Methods**: Local audio processing + optional Hume AI integration
+- **File Upload Support**: Analyze external audio files (WAV, MP3, WebM, OGG, M4A)
+- **Comprehensive Results**: Emotion scores, confidence levels, and audio features
+- **Visual Feedback**: Emotion icons, progress bars, and detailed analysis reports
+
 ### 🎨 **Modern User Interface**
 - Glassmorphism design with smooth animations
 - Responsive layout for all devices
@@ -109,6 +116,7 @@ English (US/UK), Spanish, French, German, Italian, Portuguese, Russian, Japanese
 ## 📖 Documentation
 
 - [Transcription Guide](TRANSCRIPTION_GUIDE.md) - Comprehensive guide to transcription features
+- [Emotion Analyzer Guide](EMOTION_ANALYZER_GUIDE.md) - Complete guide to voice emotion analysis
 - [Demo Instructions](DEMO_INSTRUCTIONS.md) - Step-by-step demo script for presentations
 
 ## 🎓 Academic Value

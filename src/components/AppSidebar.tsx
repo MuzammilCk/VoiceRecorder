@@ -7,6 +7,7 @@ import {
   Users,
   FileText,
   Music, // Added the Music icon
+  Heart, // Added for tone analyzer
 } from "lucide-react";
 import { NavLink, useLocation } from "react-router-dom";
 
@@ -27,6 +28,7 @@ import {
 const navigationItems = [
   { title: "Voice Studio", url: "/", icon: Mic },
   { title: "Song Search", url: "/song-search", icon: Music },
+  { title: "Emotion Analyzer", url: "/tone-analyzer", icon: Heart },
   { title: "My Recordings", url: "/recordings", icon: FolderOpen },
   { title: "Transcripts", url: "/transcripts", icon: FileText },
 ];
