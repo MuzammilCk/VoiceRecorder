@@ -209,27 +209,28 @@ class EmotionAnalysisService {
     return crossings / audioData.length;
   }
 
-  // Infer emotions from audio features using heuristics
+  // Enhanced emotion inference with more detailed analysis
   private inferEmotionsFromFeatures(features: AudioFeatures): EmotionScore[] {
-    const emotions: EmotionScore[] = [];
+    const { pitch, energy, spectralCentroid, zeroCrossingRate } = features;
     
-    // Happiness: Higher pitch, higher energy, moderate spectral centroid
-    if (features.pitch > 200 && features.energy > 0.3) {
-      emotions.push({
-        emotion: 'happiness',
-        confidence: Math.min(0.9, (features.pitch / 300) * (features.energy / 0.5)),
-        description: 'High energy and elevated pitch suggest happiness'
-      });
-    }
-    
-    // Sadness: Lower pitch, lower energy
-    if (features.pitch < 150 && features.energy < 0.2) {
-      emotions.push({
-        emotion: 'sadness',
-        confidence: Math.min(0.8, (1 - features.pitch / 200) * (1 - features.energy / 0.3)),
-        description: 'Low energy and pitch suggest sadness'
-      });
-    }
+    // Enhanced heuristic-based emotion detection with more emotions
+    const emotions: EmotionScore[] = [
+      { emotion: 'happiness', confidence: Math.min(0.95, (energy * 0.7 + spectralCentroid * 0.3) * (pitch > 150 ? 1.1 : 0.9)), description: 'High energy and bright tone suggest happiness' },
+      { emotion: 'excitement', confidence: Math.min(0.9, energy * 1.2 * (zeroCrossingRate > 0.5 ? 1.1 : 0.8)), description: 'Very high energy with vocal variation indicates excitement' },
+      { emotion: 'joy', confidence: Math.min(0.88, (energy + spectralCentroid + (pitch > 180 ? 0.2 : 0)) / 2.2), description: 'Elevated pitch and energy reflect joyful expression' },
+      { emotion: 'sadness', confidence: Math.max(0.15, (1 - energy) * (pitch < 120 ? 1.2 : 0.8)), description: 'Low energy and pitch suggest sadness or melancholy' },
+      { emotion: 'melancholy', confidence: Math.max(0.12, (1 - energy * 0.8) * (spectralCentroid < 0.4 ? 1.1 : 0.7)), description: 'Subdued tone with low brightness indicates melancholy' },
+      { emotion: 'anger', confidence: Math.min(0.85, energy * 1.1 * (pitch > 200 ? 1.3 : 0.7) * (zeroCrossingRate > 0.6 ? 1.1 : 0.8)), description: 'High energy with harsh vocal qualities suggest anger' },
+      { emotion: 'frustration', confidence: Math.min(0.8, energy * 0.9 * (zeroCrossingRate > 0.5 ? 1.2 : 0.6)), description: 'Moderate energy with vocal tension indicates frustration' },
+      { emotion: 'fear', confidence: Math.min(0.75, zeroCrossingRate * 1.1 * (pitch > 250 ? 1.2 : 0.8)), description: 'High pitch with trembling voice suggests fear or anxiety' },
+      { emotion: 'anxiety', confidence: Math.min(0.7, zeroCrossingRate * 0.9 * (energy > 0.6 ? 1.1 : 0.8)), description: 'Vocal tension and unsteadiness indicate anxiety' },
+      { emotion: 'calm', confidence: Math.max(0.25, (1 - (energy + zeroCrossingRate) / 2) * (pitch < 150 ? 1.1 : 0.9)), description: 'Steady, low energy voice reflects calmness' },
+      { emotion: 'neutral', confidence: Math.max(0.2, 1 - Math.abs(energy - 0.5) - Math.abs(pitch - 150) / 300), description: 'Balanced vocal characteristics suggest neutral state' },
+      { emotion: 'confidence', confidence: Math.min(0.8, energy * 0.8 * (pitch > 140 && pitch < 200 ? 1.2 : 0.7)), description: 'Strong, controlled voice indicates confidence' },
+      { emotion: 'surprise', confidence: Math.min(0.7, (energy + zeroCrossingRate) * 0.6 * (pitch > 220 ? 1.3 : 0.6)), description: 'Sudden pitch elevation suggests surprise' },
+      { emotion: 'disgust', confidence: Math.min(0.6, energy * 0.7 * (spectralCentroid < 0.3 ? 1.2 : 0.5)), description: 'Harsh, low-frequency emphasis indicates disgust' },
+      { emotion: 'contempt', confidence: Math.min(0.65, energy * 0.6 * (pitch < 100 ? 1.3 : 0.6)), description: 'Low, controlled tone suggests contempt or disdain' }
+    ];
     
     // Anger: Higher energy, variable pitch, high zero crossing rate
     if (features.energy > 0.4 && features.zeroCrossingRate > 0.1) {

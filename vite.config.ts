@@ -41,10 +41,17 @@ export default defineConfig(({ mode }) => {
           timeout: 30000,
           rewrite: (path) => path.replace(/^\/assemblyai/, "/v2"),
           configure: (proxy) => {
-            proxy.on("proxyReq", (proxyReq) => {
+            proxy.on("proxyReq", (proxyReq, req) => {
               if (env.VITE_ASSEMBLYAI_API_KEY) {
-                proxyReq.setHeader("authorization", env.VITE_ASSEMBLYAI_API_KEY);
+                proxyReq.setHeader("Authorization", env.VITE_ASSEMBLYAI_API_KEY);
               }
+              // Remove any existing authorization header from client
+              proxyReq.removeHeader("authorization");
+              console.log("AssemblyAI proxy request:", {
+                method: proxyReq.method,
+                path: proxyReq.path,
+                headers: proxyReq.getHeaders()
+              });
             });
             proxy.on("error", (err, req, res) => {
               console.error("AssemblyAI proxy error:", err);

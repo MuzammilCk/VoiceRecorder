@@ -3,10 +3,7 @@ import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Users, Play } from 'lucide-react';
 
-const mockSharedRecordings = [
-  { id: 'shared1', name: 'Team Sync - Project Phoenix', sharedBy: 'Alice', duration: '32:15' },
-  { id: 'shared2', name: 'Client Feedback Session', sharedBy: 'Bob', duration: '45:50' },
-];
+const mockSharedRecordings: any[] = [];
 
 const SharedWithMe = () => {
   return (

@@ -121,9 +121,11 @@ export const ToneAnalyzer: React.FC<ToneAnalyzerProps> = ({ recordings }) => {
         return <Smile className="w-5 h-5 text-yellow-500" />;
       case 'sadness':
       case 'sorrow':
+      case 'melancholy':
         return <Frown className="w-5 h-5 text-blue-500" />;
       case 'anger':
       case 'rage':
+      case 'frustration':
         return <AlertTriangle className="w-5 h-5 text-red-500" />;
       case 'fear':
       case 'anxiety':
@@ -131,6 +133,13 @@ export const ToneAnalyzer: React.FC<ToneAnalyzerProps> = ({ recordings }) => {
       case 'calm':
       case 'neutral':
         return <Meh className="w-5 h-5 text-gray-500" />;
+      case 'confidence':
+        return <Zap className="w-5 h-5 text-green-500" />;
+      case 'surprise':
+        return <Eye className="w-5 h-5 text-orange-500" />;
+      case 'disgust':
+      case 'contempt':
+        return <EyeOff className="w-5 h-5 text-brown-500" />;
       default:
         return <Heart className="w-5 h-5 text-pink-500" />;
     }

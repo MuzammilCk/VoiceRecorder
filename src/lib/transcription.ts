@@ -230,9 +230,9 @@ class TranscriptionService {
         onProgress
       );
 
-      if (result.status === 'completed' && result.text) {
+      if (result.status === 'completed') {
         return {
-          transcript: result.text,
+          transcript: result.text || '',
           method: 'assemblyai',
           confidence: result.confidence || 0.9
         };

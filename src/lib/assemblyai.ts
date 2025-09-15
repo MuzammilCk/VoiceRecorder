@@ -43,9 +43,7 @@ class AssemblyAIService {
       
       const response = await fetch(`${this.baseUrl}/upload`, {
         method: 'POST',
-        headers: {
-          'authorization': this.apiKey,
-        },
+        headers: {},
         body: audioBlob,
         signal: controller.signal,
       });
@@ -54,6 +52,12 @@ class AssemblyAIService {
 
       if (!response.ok) {
         const errorText = await response.text();
+        console.error('AssemblyAI upload failed:', {
+          status: response.status,
+          statusText: response.statusText,
+          errorText,
+          headers: Object.fromEntries(response.headers.entries())
+        });
         throw new Error(`Upload failed: ${response.status} - ${errorText}`);
       }
 
@@ -96,8 +100,7 @@ class AssemblyAIService {
       const response = await fetch(`${this.baseUrl}/transcript`, {
         method: 'POST',
         headers: {
-          'authorization': this.apiKey,
-          'content-type': 'application/json',
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
       });
@@ -125,9 +128,7 @@ class AssemblyAIService {
     try {
       const response = await fetch(`${this.baseUrl}/transcript/${transcriptionId}`, {
         method: 'GET',
-        headers: {
-          'authorization': this.apiKey,
-        },
+        headers: {},
       });
 
       if (!response.ok) {
@@ -198,16 +199,19 @@ class AssemblyAIService {
 
     try {
       console.log('AssemblyAI transcription workflow starting...');
+      console.log('API Key present:', !!this.apiKey);
+      console.log('Audio blob size:', audioBlob.size, 'bytes');
+      console.log('Audio blob type:', audioBlob.type);
       
       // Step 1: Upload audio
       onProgress?.('Uploading audio...');
       const audioUrl = await this.uploadAudio(audioBlob);
-      console.log('Audio uploaded, URL:', audioUrl);
+      console.log('Audio uploaded successfully, URL:', audioUrl);
 
       // Step 2: Submit transcription
       onProgress?.('Starting transcription...');
       const transcriptionId = await this.submitTranscription(audioUrl, options);
-      console.log('Transcription submitted, ID:', transcriptionId);
+      console.log('Transcription submitted successfully, ID:', transcriptionId);
 
       // Step 3: Wait for completion
       onProgress?.('Processing transcription...');
@@ -219,11 +223,17 @@ class AssemblyAIService {
         },
       );
 
-      console.log('AssemblyAI transcription completed:', result);
+      console.log('AssemblyAI transcription completed successfully:', result);
       onProgress?.('Transcription completed!');
       return result;
     } catch (error) {
       console.error('Complete transcription workflow failed:', error);
+      console.error('Error details:', {
+        message: error instanceof Error ? error.message : String(error),
+        stack: error instanceof Error ? error.stack : undefined,
+        apiKey: !!this.apiKey,
+        baseUrl: this.baseUrl
+      });
       // Return a proper error result instead of throwing
       return {
         id: '',
