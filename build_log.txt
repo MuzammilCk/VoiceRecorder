@@ -1,0 +1,104 @@
+
+> vite_react_shadcn_ts@0.0.0 build
+> next build
+
+  Ôû▓ Next.js 14.2.35
+
+   Creating an optimized production build ...
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ Ô£ô Compiled successfully
+   Linting and checking validity of types ...
+ Ô¿» ESLint: Invalid Options: - Unknown options: useEslintrc, extensions - 'extensions' has been removed.
+   Collecting page data ...
+   Generating static pages (0/9) ...
+[AssemblyAI] No API key detected. Set NEXT_PUBLIC_ASSEMBLYAI_API_KEY in .env
+ReferenceError: window is not defined
+    at n.checkBrowserSupport (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:5380)
+    at new n (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:5330)
+    at 3567 (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:11545)
+    at t (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at 2126 (D:\projects\voiceNew\VoiceRecorder\.next\server\app\recordings\page.js:1:2960)
+    at Object.t [as require] (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at require (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:17:18811)
+    at s (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:88330)
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98875
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98962 {
+  digest: '2871652109'
+}
+
+Error occurred prerendering page "/recordings". Read more: https://nextjs.org/docs/messages/prerender-error
+
+ReferenceError: window is not defined
+    at n.checkBrowserSupport (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:5380)
+    at new n (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:5330)
+    at 3567 (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:11545)
+    at t (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at 2126 (D:\projects\voiceNew\VoiceRecorder\.next\server\app\recordings\page.js:1:2960)
+    at Object.t [as require] (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at require (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:17:18811)
+    at s (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:88330)
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98875
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98962
+[AssemblyAI] No API key detected. Set NEXT_PUBLIC_ASSEMBLYAI_API_KEY in .env
+ReferenceError: window is not defined
+    at n.checkBrowserSupport (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:5380)
+    at new n (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:5330)
+    at 3567 (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:11545)
+    at t (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at 2338 (D:\projects\voiceNew\VoiceRecorder\.next\server\app\page.js:1:27230)
+    at Object.t [as require] (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at require (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:17:18811)
+    at s (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:88330)
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98875
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98962 {
+  digest: '640015739'
+}
+
+Error occurred prerendering page "/". Read more: https://nextjs.org/docs/messages/prerender-error
+
+ReferenceError: window is not defined
+    at n.checkBrowserSupport (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:5380)
+    at new n (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:5330)
+    at 3567 (D:\projects\voiceNew\VoiceRecorder\.next\server\chunks\65.js:1:11545)
+    at t (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at 2338 (D:\projects\voiceNew\VoiceRecorder\.next\server\app\page.js:1:27230)
+    at Object.t [as require] (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at require (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:17:18811)
+    at s (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:88330)
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98875
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98962
+   Generating static pages (2/9) 
+ACRCloud API credentials not found. Please set VITE_ACRCLOUD_ACCESS_KEY and VITE_ACRCLOUD_ACCESS_SECRET environment variables.
+ReferenceError: localStorage is not defined
+    at new A (D:\projects\voiceNew\VoiceRecorder\.next\server\app\tone-analyzer\page.js:1:4297)
+    at 9470 (D:\projects\voiceNew\VoiceRecorder\.next\server\app\tone-analyzer\page.js:1:10306)
+    at Object.t [as require] (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at require (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:17:18811)
+    at s (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:88330)
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98875
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98962
+    at t (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:99165) {
+  digest: '3519322511'
+}
+
+Error occurred prerendering page "/tone-analyzer". Read more: https://nextjs.org/docs/messages/prerender-error
+
+ReferenceError: localStorage is not defined
+    at new A (D:\projects\voiceNew\VoiceRecorder\.next\server\app\tone-analyzer\page.js:1:4297)
+    at 9470 (D:\projects\voiceNew\VoiceRecorder\.next\server\app\tone-analyzer\page.js:1:10306)
+    at Object.t [as require] (D:\projects\voiceNew\VoiceRecorder\.next\server\webpack-runtime.js:1:127)
+    at require (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:17:18811)
+    at s (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:88330)
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98875
+    at D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:98962
+    at t (D:\projects\voiceNew\VoiceRecorder\node_modules\next\dist\compiled\next-server\app-page.runtime.prod.js:12:99165)
+   Generating static pages (4/9) 
+   Generating static pages (6/9) 
+ Ô£ô Generating static pages (9/9)
+
+> Export encountered errors on following paths:
+	/page: /
+	/recordings/page: /recordings
+	/tone-analyzer/page: /tone-analyzer
