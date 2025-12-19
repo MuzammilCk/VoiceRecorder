@@ -38,3 +38,5 @@ next-env.d.ts
 _legacy_src/
 index.html.bkp
 vite.config.ts.bkp
+.env.env
+.env.local
