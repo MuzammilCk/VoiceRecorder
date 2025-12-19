@@ -251,7 +251,15 @@ export const VoiceRecorder: React.FC = () => {
     if (audioRef.current) audioRef.current.pause();
 
     // Support URL or Blob
-    const src = recording.audioUrl || (recording.blob ? URL.createObjectURL(recording.blob) : '');
+    let src = recording.audioUrl;
+    if (!src && recording.blob) {
+      if (typeof recording.blob === 'string') {
+        src = recording.blob;
+      } else if (recording.blob instanceof Blob) {
+        src = URL.createObjectURL(recording.blob);
+      }
+    }
+
     if (!src) {
       toast({ title: "Playback Error", description: "No audio source found", variant: "destructive" });
       return;
@@ -271,12 +279,25 @@ export const VoiceRecorder: React.FC = () => {
   };
 
   const downloadRecording = (recording: Recording) => {
-    const url = recording.audioUrl || URL.createObjectURL(recording.blob);
+    let url = recording.audioUrl;
+    let isObjectUrl = false;
+
+    if (!url && recording.blob) {
+      if (typeof recording.blob === 'string') {
+        url = recording.blob;
+      } else if (recording.blob instanceof Blob) {
+        url = URL.createObjectURL(recording.blob);
+        isObjectUrl = true;
+      }
+    }
+
+    if (!url) return;
+
     const a = document.createElement('a');
     a.href = url;
     a.download = `${recording.name}.webm`;
     a.click();
-    if (!recording.audioUrl) URL.revokeObjectURL(url);
+    if (isObjectUrl) URL.revokeObjectURL(url);
   };
 
   const handleDelete = async (id: string) => {

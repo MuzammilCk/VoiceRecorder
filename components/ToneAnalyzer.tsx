@@ -81,7 +81,7 @@ export const ToneAnalyzer: React.FC<ToneAnalyzerProps> = ({ recordings }) => {
     }
   }, [toast]);
 
-  const analyzeEmotion = async (audioBlob: Blob, fileName: string) => {
+  const analyzeEmotion = async (audioBlob: Blob | string, fileName: string) => {
     setIsAnalyzing(true);
     setAnalysisResult(null);
 

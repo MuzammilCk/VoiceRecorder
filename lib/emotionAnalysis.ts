@@ -305,7 +305,7 @@ class EmotionAnalysisService {
   }
 
   // Main analysis method using only Hume AI
-  async analyzeEmotion(audioBlob: Blob): Promise<EmotionAnalysisResult> {
+  async analyzeEmotion(audioBlob: Blob | string): Promise<EmotionAnalysisResult> {
     if (!this.humeApiKey) {
       return {
         emotions: [],
@@ -316,7 +316,15 @@ class EmotionAnalysisService {
       };
     }
 
-    return await this.analyzeWithHume(audioBlob);
+    let blob: Blob;
+    if (typeof audioBlob === 'string') {
+      const response = await fetch(audioBlob);
+      blob = await response.blob();
+    } else {
+      blob = audioBlob;
+    }
+
+    return await this.analyzeWithHume(blob);
   }
 }
 

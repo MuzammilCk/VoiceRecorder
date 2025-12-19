@@ -85,7 +85,43 @@ export const useTranscription = ({
             if (useWhisper && whisperApiKey) {
                 result = await transcriptionService.transcribeWithWhisper(blob, whisperApiKey, language);
             } else if (useAssemblyAI) {
-                result = await transcriptionService.transcribeWithAssemblyAI(blob, language);
+                // Use the new secure server-side proxy
+                const formData = new FormData();
+                formData.append('file', blob);
+
+                // 1. Upload and start transcription
+                const uploadRes = await fetch('/api/transcribe', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                if (!uploadRes.ok) throw new Error('Failed to start transcription');
+                const { id } = await uploadRes.json();
+
+                // 2. Poll for results
+                let attempts = 0;
+                while (attempts < 60) { // Timeout after ~1-2 minutes
+                    const pollRes = await fetch(`/api/transcribe?id=${id}`);
+                    const pollData = await pollRes.json();
+
+                    if (pollData.status === 'completed') {
+                        result = {
+                            transcript: pollData.text,
+                            method: 'assemblyai',
+                            confidence: 0.99
+                        };
+                        break;
+                    } else if (pollData.status === 'error') {
+                        throw new Error(pollData.error || 'Transcription failed');
+                    }
+
+                    await new Promise(resolve => setTimeout(resolve, 1000));
+                    attempts++;
+                }
+
+                if (!result!) {
+                    throw new Error('Transcription timed out');
+                }
             } else {
                 // Browser fallback: Use the accumulated transcript from real-time
                 result = {

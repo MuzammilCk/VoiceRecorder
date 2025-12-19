@@ -8,8 +8,11 @@ import {
   TrendingUp,
   Users,
   FileText,
-  Music, // Added the Music icon
-  Heart, // Added for tone analyzer
+  BarChart,
+  Music,
+  Mic2,
+  Settings,
+  Heart
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
@@ -29,6 +32,7 @@ import {
 
 const navigationItems = [
   { title: "Voice Studio", url: "/", icon: Mic },
+  { title: "Global Search", url: "/search", icon: Search },
   { title: "Song Search", url: "/song-search", icon: Music },
   { title: "Emotion Analyzer", url: "/tone-analyzer", icon: Heart },
   { title: "My Recordings", url: "/recordings", icon: FolderOpen },

@@ -8,6 +8,8 @@ import { TranscribeRecording } from './TranscribeRecording';
 import { AIInsights } from './AIInsights';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
+import { WaveformPlayer } from './WaveformPlayer';
+
 interface MyRecordingsProps {
   recordings: Recording[];
   setRecordings: React.Dispatch<React.SetStateAction<Recording[]>>;
@@ -15,6 +17,7 @@ interface MyRecordingsProps {
 
 const MyRecordings: React.FC<MyRecordingsProps> = ({ recordings, setRecordings }) => {
   const [nowPlaying, setNowPlaying] = useState<string | null>(null);
+  const [playbackTime, setPlaybackTime] = useState(0); // Karaoke time
   const [expandedRecordings, setExpandedRecordings] = useState<Set<string>>(new Set());
   const [whisperApiKey, setWhisperApiKey] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
@@ -74,10 +77,10 @@ const MyRecordings: React.FC<MyRecordingsProps> = ({ recordings, setRecordings }
     });
   };
 
-  const handleTranscriptionComplete = (recordingId: string, transcript: string) => {
+  const handleTranscriptionComplete = (recordingId: string, transcript: string, utterances?: any[], words?: any[]) => {
     setRecordings(prev => prev.map(recording =>
       recording.id === recordingId
-        ? { ...recording, transcript }
+        ? { ...recording, transcript, utterances, words }
         : recording
     ));
   };
@@ -147,18 +150,74 @@ const MyRecordings: React.FC<MyRecordingsProps> = ({ recordings, setRecordings }
                 {expandedRecordings.has(recording.id) && (
                   <div className="mt-2 p-4 border border-border/50 rounded-lg bg-background/50">
                     {recording.transcript && recording.transcript.trim() ? (
-                      <Tabs defaultValue="chat" className="w-full">
-                        <TabsList className="grid w-full grid-cols-2">
-                          <TabsTrigger value="transcript">Transcript</TabsTrigger>
-                          <TabsTrigger value="chat">AI Details</TabsTrigger>
-                        </TabsList>
-                        <TabsContent value="transcript" className="p-4 bg-muted/30 rounded-lg mt-2 min-h-[300px]">
-                          <p className="text-sm leading-relaxed whitespace-pre-wrap">{recording.transcript}</p>
-                        </TabsContent>
-                        <TabsContent value="chat" className="mt-2">
-                          <AIInsights recording={recording} />
-                        </TabsContent>
-                      </Tabs>
+                      <div className="space-y-4">
+                        {/* Waveform Player - Only render if expanded to save resources */}
+                        <div className="bg-secondary/30 rounded-lg p-2">
+                          <WaveformPlayer
+                            audioUrl={recording.audioUrl || recording.blob}
+                            onTimeUpdate={(t) => setPlaybackTime(t)}
+                            height={60}
+                          />
+                        </div>
+
+                        <Tabs defaultValue="transcript" className="w-full">
+                          <TabsList className="grid w-full grid-cols-2">
+                            <TabsTrigger value="transcript">Transcript (Karaoke)</TabsTrigger>
+                            <TabsTrigger value="chat">AI Details</TabsTrigger>
+                          </TabsList>
+
+                          <TabsContent value="transcript" className="p-4 bg-muted/30 rounded-lg mt-2 min-h-[300px] max-h-[500px] overflow-y-auto">
+                            {/* Karaoke Mode */}
+                            {recording.words && recording.words.length > 0 ? (
+                              <div className="leading-relaxed text-lg flex flex-wrap gap-1.5">
+                                {recording.words.map((word, idx) => {
+                                  // Words are in ms usually from AssemblyAI? No, it's milliseconds typically.
+                                  // Wait, AssemblyAI 'words' start/end are in ms. 
+                                  // Helper: check if we need to divide by 1000. 
+                                  // Standard AssemblyAI response: start: 120, end: 450 (ms).
+                                  // Wavesurfer returns seconds (e.g. 1.2). 
+                                  // So we need to compare playbackTime * 1000.
+                                  const start = word.start / 1000;
+                                  const end = word.end / 1000;
+                                  const isActive = playbackTime >= start && playbackTime <= end;
+
+                                  return (
+                                    <span
+                                      key={idx}
+                                      className={`transition-all duration-150 px-1 rounded cursor-pointer hover:bg-primary/20 ${isActive
+                                          ? 'bg-primary/20 text-primary font-bold scale-105 shadow-sm'
+                                          : 'text-foreground/80'
+                                        }`}
+                                      title={`${start.toFixed(2)}s - ${end.toFixed(2)}s`}
+                                    >
+                                      {word.text}
+                                    </span>
+                                  );
+                                })}
+                              </div>
+                            ) : recording.utterances && recording.utterances.length > 0 ? (
+                              // Fallback to Speaker Diarization if no words
+                              <div className="space-y-4">
+                                {recording.utterances.map((u, i) => (
+                                  <div key={i} className="flex gap-4">
+                                    <div className="min-w-[80px] font-semibold text-xs text-blue-600 uppercase pt-1">
+                                      Speaker {u.speaker}
+                                    </div>
+                                    <div className="text-sm leading-relaxed">
+                                      {u.text}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            ) : (
+                              <p className="text-sm leading-relaxed whitespace-pre-wrap">{recording.transcript}</p>
+                            )}
+                          </TabsContent>
+                          <TabsContent value="chat" className="mt-2">
+                            <AIInsights recording={recording} />
+                          </TabsContent>
+                        </Tabs>
+                      </div>
                     ) : (
                       <TranscribeRecording
                         recording={recording}

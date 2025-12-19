@@ -9,7 +9,7 @@ import { transcriptionService } from '@/lib/transcription';
 
 interface TranscribeRecordingProps {
   recording: Recording;
-  onTranscriptionComplete: (recordingId: string, transcript: string) => void;
+  onTranscriptionComplete: (recordingId: string, transcript: string, utterances?: any[], words?: any[]) => void;
   whisperApiKey: string;
   language: string;
 }
@@ -33,7 +33,12 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
     setTranscriptionResult(null);
 
     try {
-      const result = await transcriptionService.transcribeAudioBlob(recording.blob, language);
+      let blob = recording.blob;
+      if (typeof blob === 'string') {
+        const r = await fetch(blob);
+        blob = await r.blob();
+      }
+      const result = await transcriptionService.transcribeAudioBlob(blob, language);
 
       if (result.error) {
         setTranscriptionResult({
@@ -52,6 +57,13 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
           transcript: result.transcript
         });
         onTranscriptionComplete(recording.id, result.transcript);
+
+        // Trigger auto-indexing for RAG
+        fetch('/api/rag/index', {
+          method: 'POST',
+          body: JSON.stringify({ recordingId: recording.id, text: result.transcript })
+        }).catch(err => console.error('Auto-indexing failed:', err));
+
         toast({
           title: "Transcription Complete",
           description: "Recording transcribed successfully"
@@ -88,8 +100,14 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
     setTranscriptionResult(null);
 
     try {
+      let blob = recording.blob;
+      if (typeof blob === 'string') {
+        const r = await fetch(blob);
+        blob = await r.blob();
+      }
+
       const result = await transcriptionService.transcribeWithWhisper(
-        recording.blob,
+        blob,
         whisperApiKey,
         language.split('-')[0]
       );
@@ -138,37 +156,73 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
     setTranscriptionResult(null);
 
     try {
-      const result = await transcriptionService.transcribeWithAssemblyAI(
-        recording.blob,
-        language.split('-')[0], // Convert 'en-US' to 'en'
-        (stage, status) => {
-          console.log(`AssemblyAI Progress: ${stage}`, status);
-        }
-      );
+      const formData = new FormData();
+      formData.append('file', recording.blob instanceof Blob ? recording.blob : new Blob([recording.blob]));
 
-      if (result.error) {
-        setTranscriptionResult({
-          success: false,
-          transcript: '',
-          error: result.error
-        });
-        toast({
-          title: "AssemblyAI Transcription Failed",
-          description: result.error,
-          variant: "destructive"
-        });
-      } else {
-        setTranscriptionResult({
-          success: true,
-          transcript: result.transcript
-        });
-        onTranscriptionComplete(recording.id, result.transcript);
-        toast({
-          title: "AssemblyAI Transcription Complete",
-          description: "High-quality transcription completed"
-        });
+      // 1. Start Transcription
+      const uploadRes = await fetch('/api/transcribe', {
+        method: 'POST',
+        body: formData,
+      });
+
+      if (!uploadRes.ok) {
+        throw new Error(await uploadRes.text());
       }
+
+      const { id } = await uploadRes.json();
+
+      // 2. Poll for results
+      const pollInterval = setInterval(async () => {
+        try {
+          const pollRes = await fetch(`/api/transcribe?id=${id}`);
+          const pollData = await pollRes.json();
+
+          if (pollData.status === 'completed') {
+            clearInterval(pollInterval);
+            setIsTranscribing(false);
+
+            setTranscriptionResult({
+              success: true,
+              transcript: pollData.text
+            });
+
+            // Pass full result including utterances if available
+            onTranscriptionComplete(recording.id, pollData.text, pollData.utterances, pollData.words);
+
+            // Trigger auto-indexing for RAG
+            fetch('/api/rag/index', {
+              method: 'POST',
+              body: JSON.stringify({ recordingId: recording.id, text: pollData.text })
+            }).catch(err => console.error('Auto-indexing failed:', err));
+
+            toast({
+              title: "AssemblyAI Transcription Complete",
+              description: "Diarization complete!"
+            });
+          } else if (pollData.status === 'error') {
+            clearInterval(pollInterval);
+            throw new Error(pollData.error);
+          }
+          // else: continue polling
+        } catch (err) {
+          clearInterval(pollInterval);
+          setIsTranscribing(false);
+          const errorMessage = `Polling failed: ${err}`;
+          setTranscriptionResult({
+            success: false,
+            transcript: '',
+            error: errorMessage
+          });
+          toast({
+            title: "Transcription Error",
+            description: errorMessage,
+            variant: "destructive"
+          });
+        }
+      }, 3000);
+
     } catch (error) {
+      setIsTranscribing(false);
       const errorMessage = `AssemblyAI transcription failed: ${error}`;
       setTranscriptionResult({
         success: false,
@@ -180,8 +234,6 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
         description: errorMessage,
         variant: "destructive"
       });
-    } finally {
-      setIsTranscribing(false);
     }
   };
 

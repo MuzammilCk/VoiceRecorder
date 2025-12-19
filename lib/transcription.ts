@@ -1,5 +1,5 @@
 import { Recording } from '@/types';
-import { assemblyAIService, AssemblyAITranscriptionResult } from './assemblyai';
+
 
 export interface TranscriptionResult {
   transcript: string;
@@ -232,46 +232,7 @@ class TranscriptionService {
   /**
    * Transcribe using AssemblyAI API (high accuracy)
    */
-  async transcribeWithAssemblyAI(
-    audioBlob: Blob,
-    language: string = 'en',
-    onProgress?: (stage: string, status?: string) => void
-  ): Promise<TranscriptionResult> {
-    try {
-      console.log('Starting AssemblyAI transcription...');
 
-      const result = await assemblyAIService.transcribeAudio(
-        audioBlob,
-        {
-          language_code: language,
-          speaker_labels: false,
-          auto_highlights: false,
-          sentiment_analysis: false,
-        },
-        onProgress
-      );
-
-      if (result.status === 'completed') {
-        return {
-          transcript: result.text || '',
-          method: 'assemblyai',
-          confidence: result.confidence || 0.9
-        };
-      } else if (result.status === 'error') {
-        throw new Error(result.error || 'AssemblyAI transcription failed');
-      } else {
-        // Handle unexpected status (queued, processing, etc.)
-        throw new Error(`AssemblyAI returned unexpected status: ${result.status}. Expected 'completed'.`);
-      }
-    } catch (error) {
-      console.error('AssemblyAI transcription error:', error);
-      return {
-        transcript: '',
-        method: 'assemblyai',
-        error: `AssemblyAI error: ${error}`
-      };
-    }
-  }
 
   /**
    * Transcribe using OpenAI Whisper API (requires API key)
