@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -31,9 +31,19 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
 }) => {
   const [showApiKey, setShowApiKey] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
+  // State for browser support info - safe default for SSR
+  const [browserSupport, setBrowserSupport] = useState<{ supported: boolean; message: string; details?: string }>({
+    supported: false,
+    message: 'Checking browser support...',
+    details: undefined
+  });
 
   const supportedLanguages = transcriptionService.getSupportedLanguages();
-  const browserSupport = transcriptionService.getBrowserSupportInfo();
+
+  // Move browser API call to useEffect to prevent SSR crashes
+  useEffect(() => {
+    setBrowserSupport(transcriptionService.getBrowserSupportInfo());
+  }, []);
 
   const testWhisperConnection = async () => {
     if (!whisperApiKey.trim()) {
@@ -49,7 +59,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
       const sampleRate = 44100;
       const duration = 1; // 1 second
       const buffer = audioContext.createBuffer(1, sampleRate * duration, sampleRate);
-      
+
       // Convert to blob
       const audioData = new Float32Array(buffer.length);
       const blob = new Blob([audioData], { type: 'audio/wav' });
@@ -200,7 +210,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
                 </Button>
               </div>
             </div>
-            
+
             {testResult && (
               <Alert className={testResult.success ? "border-green-200 bg-green-50" : "border-red-200 bg-red-50"}>
                 {testResult.success ? (
@@ -213,7 +223,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
             )}
 
             <p className="text-xs text-muted-foreground">
-              Your API key is stored locally and never sent to our servers. 
+              Your API key is stored locally and never sent to our servers.
               Whisper API usage is charged by OpenAI based on audio duration.
             </p>
           </div>

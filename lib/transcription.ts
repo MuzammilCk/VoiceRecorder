@@ -340,6 +340,14 @@ class TranscriptionService {
    * Get browser support information
    */
   getBrowserSupportInfo(): { supported: boolean; message: string; details?: string } {
+    if (typeof window === 'undefined' || typeof navigator === 'undefined') {
+      return {
+        supported: false,
+        message: 'Speech recognition is only available in the browser. Open the app in Chrome, Edge, or Safari.',
+        details: 'Server-side render detected'
+      };
+    }
+
     if (this.isSupported) {
       return {
         supported: true,

@@ -29,7 +29,11 @@ class EmotionAnalysisService {
 
   constructor() {
     // Load API key from environment variables first, then localStorage as fallback
-    this.humeApiKey = process.env.NEXT_PUBLIC_HUME_API_KEY || (typeof window !== 'undefined' ? localStorage.getItem('humeApiKey') : '') || '';
+    // Guard localStorage access for server-side rendering
+    this.humeApiKey =
+      process.env.NEXT_PUBLIC_HUME_API_KEY ||
+      (typeof window !== 'undefined' ? localStorage.getItem('humeApiKey') || '' : '') ||
+      '';
     // Masked console hint to verify key detection (only logs presence/length)
     try {
       const len = this.humeApiKey ? this.humeApiKey.length : 0;
@@ -43,7 +47,10 @@ class EmotionAnalysisService {
 
   setHumeApiKey(apiKey: string) {
     this.humeApiKey = apiKey;
-    localStorage.setItem('humeApiKey', apiKey);
+    // Guard localStorage access for server-side rendering
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('humeApiKey', apiKey);
+    }
   }
 
   // Analyze emotion using Hume AI API
