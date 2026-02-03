@@ -32,7 +32,7 @@ class AssemblyAIService {
   async uploadAudio(audioBlob: Blob): Promise<string> {
     if (!this.apiKey) {
       console.warn('AssemblyAI API key not configured. Transcription will not be available.');
-      throw new Error('AssemblyAI API key is required. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
+      throw new Error('AssemblyAI API key is required. Please set NEXT_PUBLIC_ASSEMBLYAI_API_KEY in your .env file.');
     }
 
     try {
@@ -43,7 +43,9 @@ class AssemblyAIService {
 
       const response = await fetch(`${this.baseUrl}/upload`, {
         method: 'POST',
-        headers: {},
+        headers: {
+          Authorization: this.apiKey
+        },
         body: audioBlob,
         signal: controller.signal,
       });
@@ -81,7 +83,7 @@ class AssemblyAIService {
     sentiment_analysis?: boolean;
   } = {}): Promise<string> {
     if (!this.apiKey) {
-      throw new Error('AssemblyAI API key is required. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
+      throw new Error('AssemblyAI API key is required. Please set NEXT_PUBLIC_ASSEMBLYAI_API_KEY in your .env file.');
     }
 
     try {
@@ -100,6 +102,7 @@ class AssemblyAIService {
       const response = await fetch(`${this.baseUrl}/transcript`, {
         method: 'POST',
         headers: {
+          Authorization: this.apiKey,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(requestBody),
@@ -122,13 +125,15 @@ class AssemblyAIService {
   // Get transcription result
   async getTranscription(transcriptionId: string): Promise<AssemblyAITranscriptionResult> {
     if (!this.apiKey) {
-      throw new Error('AssemblyAI API key is required. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
+      throw new Error('AssemblyAI API key is required. Please set NEXT_PUBLIC_ASSEMBLYAI_API_KEY in your .env file.');
     }
 
     try {
       const response = await fetch(`${this.baseUrl}/transcript/${transcriptionId}`, {
         method: 'GET',
-        headers: {},
+        headers: {
+          Authorization: this.apiKey
+        },
       });
 
       if (!response.ok) {
@@ -194,7 +199,7 @@ class AssemblyAIService {
     onProgress?: (stage: string, status?: string) => void
   ): Promise<AssemblyAITranscriptionResult> {
     if (!this.apiKey) {
-      throw new Error('AssemblyAI API key is required. Please set VITE_ASSEMBLYAI_API_KEY in your .env file.');
+      throw new Error('AssemblyAI API key is required. Please set NEXT_PUBLIC_ASSEMBLYAI_API_KEY in your .env file.');
     }
 
     try {
