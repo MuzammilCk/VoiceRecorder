@@ -88,6 +88,31 @@ export const useSupabaseRecordings = () => {
         }
     };
 
+    const updateRecording = async (id: string, updates: Partial<Recording>) => {
+        try {
+            // Update in DB
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const dbUpdates: any = {};
+            if (updates.name) dbUpdates.name = updates.name;
+            if (updates.transcript) dbUpdates.transcript = updates.transcript;
+
+            const { error: dbError } = await supabase
+                .from('recordings')
+                .update(dbUpdates)
+                .eq('id', id);
+
+            if (dbError) throw dbError;
+
+            // Update in local state
+            setRecordings(prev => prev.map(r => r.id === id ? { ...r, ...updates } : r));
+
+        } catch (error) {
+            console.error('Error updating recording:', error);
+            toast({ title: 'Error', description: 'Failed to update recording.', variant: 'destructive' });
+            throw error;
+        }
+    };
+
     const deleteRecording = async (id: string, audioUrl?: string) => {
         try {
             // Delete from DB
@@ -120,6 +145,7 @@ export const useSupabaseRecordings = () => {
         recordings,
         setRecordings, // Kept for compatibility, but prefer specific methods
         saveRecording,
+        updateRecording,
         deleteRecording,
         isLoading
     };

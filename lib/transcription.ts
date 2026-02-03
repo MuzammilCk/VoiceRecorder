@@ -1,11 +1,15 @@
 import { Recording } from '@/types';
 
 
+import { Utterance, Word } from '@/types';
+
 export interface TranscriptionResult {
   transcript: string;
-  confidence?: number;
   method: 'browser' | 'whisper' | 'assemblyai' | 'manual';
+  confidence?: number;
   error?: string;
+  utterances?: Utterance[]; // For diarization
+  words?: Word[]; // For karaoke
 }
 
 export interface TranscriptionOptions {

@@ -14,6 +14,7 @@ interface RecordingsContextType {
     recordings: Recording[];
     setRecordings: React.Dispatch<React.SetStateAction<Recording[]>>;
     saveRecording: (recording: Recording) => Promise<Recording>; // Add save method
+    updateRecording: (id: string, updates: Partial<Recording>) => Promise<void>; // Add update method
     deleteRecording: (id: string) => Promise<void>; // Add delete method
     isLoading: boolean;
 }
@@ -31,12 +32,12 @@ export const useRecordings = () => {
 export function Providers({ children }: { children: ReactNode }) {
     const [queryClient] = useState(() => new QueryClient());
     // Use Supabase hook instead of local state
-    const { recordings, setRecordings, saveRecording, deleteRecording, isLoading } = useSupabaseRecordings();
+    const { recordings, setRecordings, saveRecording, updateRecording, deleteRecording, isLoading } = useSupabaseRecordings();
 
     return (
         <QueryClientProvider client={queryClient}>
             <TooltipProvider>
-                <RecordingsContext.Provider value={{ recordings, setRecordings, saveRecording, deleteRecording, isLoading }}>
+                <RecordingsContext.Provider value={{ recordings, setRecordings, saveRecording, updateRecording, deleteRecording, isLoading }}>
                     <SidebarProvider>
                         {children}
                         <Toaster />

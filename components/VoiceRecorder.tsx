@@ -27,7 +27,7 @@ declare global {
 import { useRecordings } from '@/components/Providers';
 
 export const VoiceRecorder: React.FC = () => {
-  const { recordings, saveRecording, deleteRecording } = useRecordings();
+  const { recordings, saveRecording, updateRecording, deleteRecording } = useRecordings();
   const [isRecording, setIsRecording] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentRecording, setCurrentRecording] = useState<Recording | null>(null);
@@ -118,7 +118,13 @@ export const VoiceRecorder: React.FC = () => {
 
     try {
       const stream = await navigator.mediaDevices.getUserMedia({
-        audio: { echoCancellation: true, noiseSuppression: true, sampleRate: 44100 }
+        audio: {
+          echoCancellation: true,
+          noiseSuppression: false, // Disabling aggressive suppression often improves voice clarity
+          autoGainControl: true,
+          sampleRate: 48000, // CD quality
+          channelCount: 1
+        }
       });
       streamRef.current = stream;
 
@@ -154,52 +160,60 @@ export const VoiceRecorder: React.FC = () => {
           name = `Recording ${year}-${month}-${day} ${hours}.${minutes}.${seconds}`;
         }
 
-        // Transcribe the recording using our hook
-        const result = await transcribeFile(blob);
-        const finalTranscript = result.transcript;
-
-        if (result.error) {
-          console.error('Transcription error:', result.error);
-        } else {
-          toast({
-            title: "Transcription Complete",
-            description: `Audio transcribed successfully using ${result.method}`
-          });
-        }
-
-        toast({
-          title: "Recording Complete",
-          description: "Audio recorded and processed"
-        });
-
-        const newRecording: Recording = {
-          id: Date.now().toString(), // Helper ID, will be replaced by DB
-          name: name,
-          blob,
-          duration: recordingTimeRef.current,
-          timestamp: timestamp,
-          transcript: finalTranscript,
-        };
-
-        console.log('Saving recording with transcript:', finalTranscript);
-
         setIsSaving(true);
+        let savedRecording: Recording;
+
         try {
-          const saved = await saveRecording(newRecording);
-          setCurrentRecording(saved);
+          // 1. Immediate Save (Optimistic UI)
+          const initialRecording: Recording = {
+            id: Date.now().toString(),
+            name: name,
+            blob,
+            duration: recordingTimeRef.current,
+            timestamp: timestamp,
+            transcript: ''
+          };
+
+          savedRecording = await saveRecording(initialRecording);
+          setCurrentRecording(savedRecording);
+
           toast({
             title: "Recording Saved",
-            description: `Saved to cloud as "${saved.name}"`
+            description: "Audio saved. Starting transcription..."
           });
+
+          setIsSaving(false);
+          setRecordingName(''); // Reset name field
+
+          // 2. Background Transcription
+          transcribeFile(blob).then(async (result) => {
+            if (result.error) {
+              console.error('Transcription error:', result.error);
+              toast({ variant: 'destructive', title: 'Transcription Failed', description: result.error });
+            } else {
+              toast({ title: "Transcription Complete", description: "Updating recording..." });
+
+              // Update the database with the new transcript
+              try {
+                await updateRecording(savedRecording.id, {
+                  transcript: result.transcript,
+                  utterances: result.utterances, // Assuming result has these from previous edits
+                  words: result.words
+                });
+              } catch (uErr) {
+                console.error("Failed to update transcript in DB", uErr);
+              }
+            }
+          });
+
         } catch (err) {
+          setIsSaving(false);
+          console.error(err);
           toast({
             title: "Save Failed",
             description: "Could not save to Supabase.",
             variant: "destructive"
           });
-        } finally {
-          setIsSaving(false);
-          setRecordingName('');
         }
       };
 
