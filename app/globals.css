@@ -7,58 +7,60 @@
 @layer base {
   :root {
     /* Core Background Colors */
-    --background: 0 0% 100%;
-    --foreground: 240 10% 3.9%;
+    --background: 222 58% 10%;
+    --foreground: 210 40% 98%;
 
     /* Surface Colors */
-    --card: 0 0% 100%;
-    --card-foreground: 240 10% 3.9%;
+    --card: 222 48% 14%;
+    --card-foreground: 210 40% 98%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 240 10% 3.9%;
+    --popover: 222 48% 14%;
+    --popover-foreground: 210 40% 98%;
 
-    /* Brand Colors - Red & White */
-    --primary: 0 84% 60%;
-    --primary-foreground: 210 40% 98%;
-    --primary-glow: 0 84% 70%;
+    /* Brand Colors - Motorsport Blue & Red */
+    --primary: 200 96% 52%;
+    --primary-foreground: 222 58% 12%;
+    --primary-glow: 210 100% 62%;
 
-    --secondary: 240 4.8% 95.9%;
-    --secondary-foreground: 240 5.9% 10%;
+    --secondary: 222 34% 18%;
+    --secondary-foreground: 210 40% 98%;
 
-    --muted: 240 4.8% 95.9%;
-    --muted-foreground: 240 3.8% 46.1%;
+    --muted: 222 34% 20%;
+    --muted-foreground: 213 18% 70%;
 
-    --accent: 240 4.8% 95.9%;
-    --accent-foreground: 240 5.9% 10%;
+    --accent: 222 34% 20%;
+    --accent-foreground: 210 40% 98%;
 
     /* Status Colors */
-    --destructive: 0 84% 60%;
+    --destructive: 356 82% 56%;
     --destructive-foreground: 210 40% 98%;
 
     --success: 142 76% 36%;
     --warning: 38 92% 50%;
 
     /* Interactive Elements */
-    --border: 240 5.9% 90%;
-    --input: 240 5.9% 90%;
-    --ring: 0 84% 60%;
+    --border: 214 32% 24%;
+    --input: 214 32% 24%;
+    --ring: 200 96% 52%;
 
     /* Audio-specific Colors */
-    --waveform: 0 84% 60%;
-    --waveform-bg: 0 0% 95%;
-    --recording: 0 84% 60%;
-    --playing: 142 76% 36%;
+    --waveform: 200 96% 52%;
+    --waveform-bg: 222 36% 16%;
+    --recording: 356 82% 56%;
+    --playing: 141 70% 45%;
 
     /* Gradients */
-    --gradient-primary: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 70%));
-    --gradient-accent: linear-gradient(135deg, hsl(0 84% 60%), hsl(0 84% 70%));
-    --gradient-surface: linear-gradient(135deg, hsl(0 0% 100%), hsl(240 4.8% 95.9%));
-    --gradient-subtle: linear-gradient(180deg, hsl(0 0% 100%), hsl(240 4.8% 95.9%));
+    --gradient-primary: linear-gradient(135deg, hsl(200 96% 52%), hsl(210 100% 62%));
+    --gradient-accent: linear-gradient(135deg, hsl(356 82% 56%), hsl(200 96% 52%));
+    --gradient-surface: linear-gradient(135deg, hsl(222 48% 16%), hsl(221 44% 12%));
+    --gradient-subtle: radial-gradient(120% 120% at 20% 0%, hsl(210 100% 48% / 0.25), transparent 60%),
+      radial-gradient(80% 80% at 80% 10%, hsl(197 94% 50% / 0.2), transparent 55%),
+      linear-gradient(180deg, hsl(222 58% 10%), hsl(221 46% 8%));
 
     /* Shadows & Effects */
-    --shadow-glow: 0 0 40px hsl(0 84% 60% / 0.3);
-    --shadow-card: 0 8px 32px hsl(0 0% 0% / 0.1);
-    --shadow-recording: 0 0 30px hsl(0 84% 60% / 0.4);
+    --shadow-glow: 0 0 40px hsl(200 96% 52% / 0.35);
+    --shadow-card: 0 24px 60px hsl(222 58% 8% / 0.6);
+    --shadow-recording: 0 0 30px hsl(356 82% 56% / 0.5);
 
     /* Animations */
     --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -112,7 +114,18 @@
   /* Glass Effect */
   .glass {
     backdrop-filter: blur(16px) saturate(180%);
-    background: hsl(var(--card) / 0.8);
-    border: 1px solid hsl(var(--border) / 0.5);
+    background: hsl(var(--card) / 0.88);
+    border: 1px solid hsl(var(--border) / 0.55);
+  }
+
+  .racing-panel {
+    background: radial-gradient(120% 120% at 0% 0%, hsl(210 100% 55% / 0.18), transparent 60%),
+      radial-gradient(90% 90% at 100% 0%, hsl(356 82% 56% / 0.16), transparent 55%),
+      linear-gradient(140deg, hsl(222 48% 16%), hsl(221 44% 12%));
+    box-shadow: var(--shadow-card);
+  }
+
+  .racing-highlight {
+    background: linear-gradient(120deg, hsl(210 100% 60% / 0.35), transparent 60%);
   }
 }

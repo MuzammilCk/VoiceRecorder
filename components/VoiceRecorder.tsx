@@ -331,55 +331,80 @@ export const VoiceRecorder: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      <Card className="glass border-border/50 p-8">
-        <div className="text-center space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-              Voice recorder
-            </h1>
-            <p className="text-muted-foreground">Professional Voice Intelligence</p>
+      <Card className="relative overflow-hidden border border-white/10 p-8 racing-panel">
+        <div className="absolute -top-14 -left-10 flex rotate-[-18deg] gap-2">
+          <span className="h-28 w-4 rounded-full bg-[#36C6FF]" />
+          <span className="h-28 w-4 rounded-full bg-[#1A2B4D]" />
+          <span className="h-28 w-4 rounded-full bg-[#E11D2E]" />
+        </div>
+        <div className="absolute right-0 top-0 h-56 w-56 rounded-full racing-highlight blur-3xl opacity-70" />
+        <div className="relative grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+          <div className="space-y-6">
+            <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.3em] text-slate-200">
+              <span className="inline-flex h-2 w-2 rounded-full bg-[#36C6FF]" />
+              M-inspired studio
+            </div>
+            <div className="space-y-3">
+              <h1 className="text-4xl font-semibold leading-tight text-white">
+                Voice Recorder
+              </h1>
+              <p className="text-base text-slate-300">
+                High-contrast, motorsport-grade capture with real-time waveform feedback and precision timing.
+              </p>
+            </div>
+            <div className="flex flex-wrap items-center gap-3">
+              <Badge className="bg-white/10 text-slate-100 hover:bg-white/15" variant="secondary">Live waveform</Badge>
+              <Badge className="bg-white/10 text-slate-100 hover:bg-white/15" variant="secondary">Transcription-ready</Badge>
+              <Badge className="bg-white/10 text-slate-100 hover:bg-white/15" variant="secondary">Cloud saved</Badge>
+            </div>
           </div>
-          <div className="flex items-center justify-center gap-1 h-20 bg-waveform-bg rounded-lg p-4">
-            {audioLevels.map((level, index) => (
-              <div key={index} className={cn("bg-waveform rounded-full transition-all duration-75", isRecording && "waveform-bar")} style={{ width: '4px', height: `${Math.max(4, level * 100)}px`, animationDelay: `${index * 50}ms` }} />
-            ))}
-          </div>
-          <div className="text-2xl font-mono text-primary">
-            {formatTime(recordingTime)}
-          </div>
-          <div className="w-full max-w-sm mx-auto space-y-4">
-            <Input
-              type="text"
-              placeholder="Name your recording..."
-              value={recordingName}
-              onChange={(e) => setRecordingName(e.target.value)}
-              disabled={isRecording}
-              className="bg-background/50 text-center"
-            />
-          </div>
-          <div className="flex justify-center items-center gap-4">
-            <LanguageSelector language={language} setLanguage={setLanguage} isRecording={isRecording} />
-            <Button
-              size="lg"
-              variant={isRecording ? "destructive" : "default"}
-              className={cn("h-20 w-20 rounded-full transition-all duration-300", isRecording && "recording-pulse glow-recording")}
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={isTranscribing}
-            >
-              {isTranscribing ? (
-                <Loader2 className="h-8 w-8 animate-spin" />
-              ) : isRecording ? (
-                <Square className="h-8 w-8" />
-              ) : (
-                <Mic className="h-8 w-8" />
-              )}
-            </Button>
+          <div className="space-y-6">
+            <div className="flex items-center justify-center gap-1 h-20 rounded-2xl bg-waveform-bg/80 border border-white/10 p-4">
+              {audioLevels.map((level, index) => (
+                <div
+                  key={index}
+                  className={cn("bg-waveform rounded-full transition-all duration-75", isRecording && "waveform-bar")}
+                  style={{ width: '4px', height: `${Math.max(6, level * 100)}px`, animationDelay: `${index * 50}ms` }}
+                />
+              ))}
+            </div>
+            <div className="text-center text-2xl font-mono text-primary">
+              {formatTime(recordingTime)}
+            </div>
+            <div className="w-full space-y-4">
+              <Input
+                type="text"
+                placeholder="Name your recording..."
+                value={recordingName}
+                onChange={(e) => setRecordingName(e.target.value)}
+                disabled={isRecording}
+                className="bg-white/5 text-center text-slate-100 placeholder:text-slate-400 border-white/15 focus-visible:ring-primary"
+              />
+            </div>
+            <div className="flex flex-wrap justify-center items-center gap-4">
+              <LanguageSelector language={language} setLanguage={setLanguage} isRecording={isRecording} />
+              <Button
+                size="lg"
+                variant={isRecording ? "destructive" : "default"}
+                className={cn("h-20 w-20 rounded-full transition-all duration-300", isRecording && "recording-pulse glow-recording")}
+                onClick={isRecording ? stopRecording : startRecording}
+                disabled={isTranscribing}
+              >
+                {isTranscribing ? (
+                  <Loader2 className="h-8 w-8 animate-spin" />
+                ) : isRecording ? (
+                  <Square className="h-8 w-8" />
+                ) : (
+                  <Mic className="h-8 w-8" />
+                )}
+              </Button>
+            </div>
           </div>
         </div>
       </Card>
 
       {(transcript || currentRecording?.transcript) && (
-        <Card className="glass border-border/50 p-6">
+        <Card className="glass border-white/10 p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold">Transcript</h2>
             {isTranscribing && (
@@ -407,11 +432,11 @@ export const VoiceRecorder: React.FC = () => {
 
 
       {recordings.length > 0 && (
-        <Card className="glass border-border/50 p-6">
+        <Card className="glass border-white/10 p-6">
           <h2 className="text-xl font-semibold mb-4">Recent Recordings</h2>
           <div className="space-y-3">
             {recordings.map((recording) => (
-              <div key={recording.id} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border/30">
+              <div key={recording.id} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-white/10">
                 <div className="flex items-center gap-4">
                   <Button size="sm" variant="ghost" onClick={() => (isPlaying && currentRecording?.id === recording.id) ? pausePlayback() : playRecording(recording)}>
                     {(isPlaying && currentRecording?.id === recording.id) ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
