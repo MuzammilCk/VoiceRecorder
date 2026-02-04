@@ -10,14 +10,12 @@ import { transcriptionService } from '@/lib/transcription';
 interface TranscribeRecordingProps {
   recording: Recording;
   onTranscriptionComplete: (recordingId: string, transcript: string, utterances?: any[], words?: any[]) => void;
-  whisperApiKey: string;
   language: string;
 }
 
 export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
   recording,
   onTranscriptionComplete,
-  whisperApiKey,
   language
 }) => {
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -87,15 +85,6 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
   };
 
   const transcribeWithWhisper = async () => {
-    if (!whisperApiKey.trim()) {
-      toast({
-        title: "API Key Required",
-        description: "Please provide a Whisper API key in settings",
-        variant: "destructive"
-      });
-      return;
-    }
-
     setIsTranscribing(true);
     setTranscriptionResult(null);
 
@@ -108,7 +97,6 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
 
       const result = await transcriptionService.transcribeWithWhisper(
         blob,
-        whisperApiKey,
         language.split('-')[0]
       );
 
@@ -311,7 +299,7 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
             variant="outline"
             size="sm"
             onClick={transcribeWithWhisper}
-            disabled={isTranscribing || !whisperApiKey.trim()}
+            disabled={isTranscribing}
           >
             {isTranscribing ? (
               <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -324,7 +312,7 @@ export const TranscribeRecording: React.FC<TranscribeRecordingProps> = ({
           <p className="text-xs text-muted-foreground">
             • Browser: Free, real-time, basic accuracy<br />
             • AssemblyAI: High accuracy, built-in, recommended<br />
-            • Whisper: High accuracy, requires API key
+            • Whisper: High accuracy, uses server-side API key
           </p>
         </div>
       </div>
