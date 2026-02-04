@@ -329,109 +329,155 @@ export const VoiceRecorder: React.FC = () => {
     return `${mins}:${secs.toString().padStart(2, '0')}`;
   };
 
-  return (
-    <div className="space-y-6">
-      <Card className="glass border-border/50 p-8">
-        <div className="text-center space-y-6">
-          <div className="space-y-2">
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-primary to-primary-glow bg-clip-text text-transparent">
-              Voice recorder
-            </h1>
-            <p className="text-muted-foreground">Professional Voice Intelligence</p>
-          </div>
-          <div className="flex items-center justify-center gap-1 h-20 bg-waveform-bg rounded-lg p-4">
-            {audioLevels.map((level, index) => (
-              <div key={index} className={cn("bg-waveform rounded-full transition-all duration-75", isRecording && "waveform-bar")} style={{ width: '4px', height: `${Math.max(4, level * 100)}px`, animationDelay: `${index * 50}ms` }} />
-            ))}
-          </div>
-          <div className="text-2xl font-mono text-primary">
-            {formatTime(recordingTime)}
-          </div>
-          <div className="w-full max-w-sm mx-auto space-y-4">
-            <Input
-              type="text"
-              placeholder="Name your recording..."
-              value={recordingName}
-              onChange={(e) => setRecordingName(e.target.value)}
-              disabled={isRecording}
-              className="bg-background/50 text-center"
-            />
-          </div>
-          <div className="flex justify-center items-center gap-4">
-            <LanguageSelector language={language} setLanguage={setLanguage} isRecording={isRecording} />
-            <Button
-              size="lg"
-              variant={isRecording ? "destructive" : "default"}
-              className={cn("h-20 w-20 rounded-full transition-all duration-300", isRecording && "recording-pulse glow-recording")}
-              onClick={isRecording ? stopRecording : startRecording}
-              disabled={isTranscribing}
-            >
-              {isTranscribing ? (
-                <Loader2 className="h-8 w-8 animate-spin" />
-              ) : isRecording ? (
-                <Square className="h-8 w-8" />
-              ) : (
-                <Mic className="h-8 w-8" />
-              )}
-            </Button>
-          </div>
-        </div>
-      </Card>
+  const hasTranscript = Boolean(transcript || currentRecording?.transcript);
 
-      {(transcript || currentRecording?.transcript) && (
-        <Card className="glass border-border/50 p-6">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-xl font-semibold">Transcript</h2>
-            {isTranscribing && (
-              <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                <Loader2 className="h-4 w-4 animate-spin" />
-                Transcribing...
+  return (
+    <div className="dashboard-shell">
+      <div className="relative z-10 space-y-8">
+        <Card className="relative overflow-hidden border border-white/10 p-8 racing-panel panel-edge">
+          <div className="absolute -top-14 -left-10 flex rotate-[-18deg] gap-2">
+            <span className="h-28 w-4 rounded-full bg-[#36C6FF]" />
+            <span className="h-28 w-4 rounded-full bg-[#1A2B4D]" />
+            <span className="h-28 w-4 rounded-full bg-[#E11D2E]" />
+          </div>
+          <div className="absolute right-0 top-0 h-56 w-56 rounded-full racing-highlight blur-3xl opacity-70" />
+          <div className="relative grid gap-10 lg:grid-cols-[1.1fr_0.9fr]">
+            <div className="space-y-6">
+              <div className="inline-flex items-center gap-3 rounded-full border border-white/15 bg-white/5 px-4 py-2 text-xs uppercase tracking-[0.3em] text-slate-200">
+                <span className="inline-flex h-2 w-2 rounded-full bg-[#36C6FF]" />
+                signal cockpit
+              </div>
+              <div className="space-y-3">
+                <h1 className="text-4xl font-semibold leading-tight text-white">
+                  Voice Recorder
+                </h1>
+                <p className="text-base text-slate-300">
+                  A precision capture deck tuned for clarity, high-contrast monitoring, and instant retrieval.
+                </p>
+              </div>
+              <div className="flex flex-wrap items-center gap-3">
+                <Badge className="bg-white/10 text-slate-100 hover:bg-white/15" variant="secondary">Live waveform</Badge>
+                <Badge className="bg-white/10 text-slate-100 hover:bg-white/15" variant="secondary">Transcription-ready</Badge>
+                <Badge className="bg-white/10 text-slate-100 hover:bg-white/15" variant="secondary">Cloud saved</Badge>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="neo-panel rounded-2xl px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Mode</p>
+                  <p className="text-sm font-semibold text-slate-100">{isRecording ? "Live capture" : "Standby"}</p>
+                </div>
+                <div className="neo-panel rounded-2xl px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Sessions</p>
+                  <p className="text-sm font-semibold text-slate-100">{recordings.length} stored</p>
+                </div>
+                <div className="neo-panel rounded-2xl px-4 py-3">
+                  <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Transcription</p>
+                  <p className="text-sm font-semibold text-slate-100">{isTranscribing ? "Processing" : "Ready"}</p>
+                </div>
+              </div>
+            </div>
+            <div className="space-y-6">
+              <div className="flex items-center justify-center gap-1 h-20 rounded-2xl bg-waveform-bg/80 border border-white/10 p-4">
+                {audioLevels.map((level, index) => (
+                  <div
+                    key={index}
+                    className={cn("bg-waveform rounded-full transition-all duration-75", isRecording && "waveform-bar")}
+                    style={{ width: '4px', height: `${Math.max(6, level * 100)}px`, animationDelay: `${index * 50}ms` }}
+                  />
+                ))}
+              </div>
+              <div className="text-center text-2xl font-mono text-primary">
+                {formatTime(recordingTime)}
+              </div>
+              <div className="w-full space-y-4">
+                <Input
+                  type="text"
+                  placeholder="Name your recording..."
+                  value={recordingName}
+                  onChange={(e) => setRecordingName(e.target.value)}
+                  disabled={isRecording}
+                  className="bg-white/5 text-center text-slate-100 placeholder:text-slate-400 border-white/15 focus-visible:ring-primary"
+                />
+              </div>
+              <div className="flex flex-wrap justify-center items-center gap-4">
+                <LanguageSelector language={language} setLanguage={setLanguage} isRecording={isRecording} />
+                <Button
+                  size="lg"
+                  variant={isRecording ? "destructive" : "default"}
+                  className={cn("h-20 w-20 rounded-full transition-all duration-300", isRecording && "recording-pulse glow-recording")}
+                  onClick={isRecording ? stopRecording : startRecording}
+                  disabled={isTranscribing}
+                >
+                  {isTranscribing ? (
+                    <Loader2 className="h-8 w-8 animate-spin" />
+                  ) : isRecording ? (
+                    <Square className="h-8 w-8" />
+                  ) : (
+                    <Mic className="h-8 w-8" />
+                  )}
+                </Button>
+              </div>
+            </div>
+          </div>
+        </Card>
+
+        <div className="grid gap-6 lg:grid-cols-[1.4fr_0.9fr]">
+          <Card className="glass border-white/10 p-6 panel-edge">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-xl font-semibold">Transcript</h2>
+              {isTranscribing && (
+                <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  Transcribing...
+                </div>
+              )}
+            </div>
+            <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
+              {hasTranscript ? (transcript || currentRecording?.transcript) : "Capture a session to generate a live transcript."}
+            </p>
+            {transcriptionError && (
+              <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
+                <p className="text-sm text-red-600">{transcriptionError}</p>
               </div>
             )}
-          </div>
-          <p className="text-muted-foreground whitespace-pre-wrap leading-relaxed">
-            {transcript || currentRecording?.transcript || 'No transcript available'}
-          </p>
-          {transcriptionError && (
-            <div className="mt-4 p-3 bg-red-50 border border-red-200 rounded-lg">
-              <p className="text-sm text-red-600">{transcriptionError}</p>
-            </div>
-          )}
-          {debugInfo && (
-            <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-              <p className="text-sm text-blue-600">{debugInfo}</p>
-            </div>
-          )}
-        </Card>
-      )}
-
-
-      {recordings.length > 0 && (
-        <Card className="glass border-border/50 p-6">
-          <h2 className="text-xl font-semibold mb-4">Recent Recordings</h2>
-          <div className="space-y-3">
-            {recordings.map((recording) => (
-              <div key={recording.id} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-border/30">
-                <div className="flex items-center gap-4">
-                  <Button size="sm" variant="ghost" onClick={() => (isPlaying && currentRecording?.id === recording.id) ? pausePlayback() : playRecording(recording)}>
-                    {(isPlaying && currentRecording?.id === recording.id) ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
-                  </Button>
-                  <div>
-                    <p className="font-medium">{recording.name}</p>
-                    <p className="text-sm text-muted-foreground">
-                      {formatTime(recording.duration)} • {recording.timestamp.toLocaleDateString()}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Button size="sm" variant="ghost" onClick={() => downloadRecording(recording)}><Download className="h-4 w-4" /></Button>
-                  <Button size="sm" variant="ghost" onClick={() => handleDelete(recording.id)}><Trash2 className="h-4 w-4" /></Button>
-                </div>
+            {debugInfo && (
+              <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-sm text-blue-600">{debugInfo}</p>
               </div>
-            ))}
-          </div>
-        </Card>
-      )}
+            )}
+          </Card>
+
+          <Card className="glass border-white/10 p-6 panel-edge">
+            <h2 className="text-xl font-semibold mb-4">Recent Recordings</h2>
+            {recordings.length > 0 ? (
+              <div className="space-y-3">
+                {recordings.map((recording) => (
+                  <div key={recording.id} className="flex items-center justify-between p-4 bg-secondary/50 rounded-lg border border-white/10">
+                    <div className="flex items-center gap-4">
+                      <Button size="sm" variant="ghost" onClick={() => (isPlaying && currentRecording?.id === recording.id) ? pausePlayback() : playRecording(recording)}>
+                        {(isPlaying && currentRecording?.id === recording.id) ? <Pause className="h-4 w-4" /> : <Play className="h-4 w-4" />}
+                      </Button>
+                      <div>
+                        <p className="font-medium">{recording.name}</p>
+                        <p className="text-sm text-muted-foreground">
+                          {formatTime(recording.duration)} • {recording.timestamp.toLocaleDateString()}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Button size="sm" variant="ghost" onClick={() => downloadRecording(recording)}><Download className="h-4 w-4" /></Button>
+                      <Button size="sm" variant="ghost" onClick={() => handleDelete(recording.id)}><Trash2 className="h-4 w-4" /></Button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="rounded-xl border border-dashed border-white/15 bg-white/5 p-6 text-sm text-slate-300">
+                No recordings yet. Start a session to build your library.
+              </div>
+            )}
+          </Card>
+        </div>
+      </div>
     </div>
   );
 };
