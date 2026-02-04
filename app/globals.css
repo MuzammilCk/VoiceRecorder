@@ -128,4 +128,52 @@
   .racing-highlight {
     background: linear-gradient(120deg, hsl(210 100% 60% / 0.35), transparent 60%);
   }
+
+  .dashboard-shell {
+    position: relative;
+    isolation: isolate;
+  }
+
+  .dashboard-shell::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: radial-gradient(120% 120% at 10% 0%, hsl(210 100% 55% / 0.15), transparent 60%),
+      radial-gradient(120% 120% at 90% 10%, hsl(356 82% 56% / 0.12), transparent 55%);
+    opacity: 0.85;
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .dashboard-shell::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background-image: linear-gradient(hsl(210 30% 40% / 0.12) 1px, transparent 1px),
+      linear-gradient(90deg, hsl(210 30% 40% / 0.12) 1px, transparent 1px);
+    background-size: 120px 120px;
+    mask-image: radial-gradient(circle at top, black, transparent 70%);
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  .neo-panel {
+    background: linear-gradient(160deg, hsl(222 46% 18% / 0.9), hsl(221 46% 10% / 0.95));
+    border: 1px solid hsl(210 40% 60% / 0.15);
+    box-shadow: var(--shadow-card);
+  }
+
+  .panel-edge {
+    position: relative;
+    overflow: hidden;
+  }
+
+  .panel-edge::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border: 1px solid hsl(210 100% 70% / 0.15);
+    mask-image: linear-gradient(130deg, transparent 30%, black 60%);
+    pointer-events: none;
+  }
 }
