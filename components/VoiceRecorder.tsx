@@ -10,7 +10,6 @@ import { cn } from '@/lib/utils';
 import { LanguageSelector } from './LanguageSelector';
 import { Recording } from '@/types'; // Import the shared Recording type
 import { Input } from '@/components/ui/input'; // Import the Input component
-import { transcriptionService } from '@/lib/transcription';
 import { useTranscription } from '@/hooks/useTranscription';
 
 // Add this interface to your component file to make TypeScript happy with the Web Speech API
@@ -39,7 +38,6 @@ export const VoiceRecorder: React.FC = () => {
   const [language, setLanguage] = useState('en-US');
   const [recordingName, setRecordingName] = useState('');
   const [useWhisper, setUseWhisper] = useState(false);
-  const [whisperApiKey, setWhisperApiKey] = useState('');
   const [useAssemblyAI, setUseAssemblyAI] = useState(true);
   const [debugInfo, setDebugInfo] = useState('');
 
@@ -56,7 +54,6 @@ export const VoiceRecorder: React.FC = () => {
   } = useTranscription({
     language,
     useWhisper,
-    whisperApiKey,
     useAssemblyAI
   });
 
@@ -73,12 +70,10 @@ export const VoiceRecorder: React.FC = () => {
 
   useEffect(() => {
     // Load saved settings from localStorage
-    const savedApiKey = localStorage.getItem('whisperApiKey');
     const savedUseWhisper = localStorage.getItem('useWhisper') === 'true';
     const savedUseAssemblyAI = localStorage.getItem('useAssemblyAI') !== 'false';
     const savedLanguage = localStorage.getItem('transcriptionLanguage') || 'en-US';
 
-    if (savedApiKey) setWhisperApiKey(savedApiKey);
     if (savedUseWhisper) setUseWhisper(savedUseWhisper);
     setUseAssemblyAI(savedUseAssemblyAI);
     setLanguage(savedLanguage);
@@ -92,25 +87,15 @@ export const VoiceRecorder: React.FC = () => {
   }, []);
 
   useEffect(() => {
-    localStorage.setItem('whisperApiKey', whisperApiKey);
     localStorage.setItem('useWhisper', useWhisper.toString());
     localStorage.setItem('useAssemblyAI', useAssemblyAI.toString());
     localStorage.setItem('transcriptionLanguage', language);
-  }, [whisperApiKey, useWhisper, useAssemblyAI, language]);
+  }, [useWhisper, useAssemblyAI, language]);
 
   const startRecording = async () => {
     resetTranscript();
     setCurrentRecording(null);
     chunksRef.current = [];
-
-    if (useWhisper && !useAssemblyAI && !whisperApiKey.trim()) {
-      toast({
-        title: "API Key Required",
-        description: "Please configure your OpenAI API key in settings to use Whisper transcription.",
-        variant: "destructive"
-      });
-      return;
-    }
 
     if (useAssemblyAI) {
       console.log('Using AssemblyAI for transcription');

@@ -15,7 +15,6 @@ export interface TranscriptionResult {
 export interface TranscriptionOptions {
   language?: string;
   useWhisper?: boolean;
-  whisperApiKey?: string;
   useAssemblyAI?: boolean;
 }
 
@@ -243,27 +242,21 @@ class TranscriptionService {
    */
   async transcribeWithWhisper(
     audioBlob: Blob,
-    apiKey: string,
     language: string = 'en'
   ): Promise<TranscriptionResult> {
     try {
       const formData = new FormData();
       formData.append('file', audioBlob, 'recording.webm');
-      formData.append('model', 'whisper-1');
       formData.append('language', language);
-      formData.append('response_format', 'json');
 
-      const response = await fetch('https://api.openai.com/v1/audio/transcriptions', {
+      const response = await fetch('/api/whisper', {
         method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-        },
         body: formData,
       });
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error?.message || `HTTP ${response.status}`);
+        throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
       }
 
       const result = await response.json();

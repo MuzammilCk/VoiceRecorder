@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Play, Pause, Download, Trash2, FolderOpen, FileText, Sparkles } from 'lucide-react';
@@ -19,15 +19,8 @@ const MyRecordings: React.FC<MyRecordingsProps> = ({ recordings, setRecordings }
   const [nowPlaying, setNowPlaying] = useState<string | null>(null);
   const [playbackTime, setPlaybackTime] = useState(0); // Karaoke time
   const [expandedRecordings, setExpandedRecordings] = useState<Set<string>>(new Set());
-  const [whisperApiKey, setWhisperApiKey] = useState('');
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const { toast } = useToast();
-
-  // Load Whisper API key from localStorage
-  useEffect(() => {
-    const savedApiKey = localStorage.getItem('whisperApiKey');
-    if (savedApiKey) setWhisperApiKey(savedApiKey);
-  }, []);
 
   const playRecording = (recording: Recording) => {
     if (audioRef.current) {
@@ -222,7 +215,6 @@ const MyRecordings: React.FC<MyRecordingsProps> = ({ recordings, setRecordings }
                       <TranscribeRecording
                         recording={recording}
                         onTranscriptionComplete={handleTranscriptionComplete}
-                        whisperApiKey={whisperApiKey}
                         language="en-US"
                       />
                     )}

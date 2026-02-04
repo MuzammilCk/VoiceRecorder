@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 
-const ASSEMBLYAI_API_KEY = process.env.NEXT_PUBLIC_ASSEMBLYAI_API_KEY || process.env.ASSEMBLYAI_API_KEY;
+const ASSEMBLYAI_API_KEY = process.env.ASSEMBLYAI_API_KEY;
 const BASE_URL = 'https://api.assemblyai.com/v2';
 
 export async function POST(request: Request) {
@@ -42,8 +42,9 @@ export async function POST(request: Request) {
             },
             body: JSON.stringify({
                 audio_url: audioUrl,
-                speaker_labels: true, // Enable Diarization
-                language_code: 'en'  // Default to English for now
+                speaker_labels: true,
+                word_boost: [],
+                language_detection: true
             })
         });
 
@@ -52,9 +53,7 @@ export async function POST(request: Request) {
             throw new Error(`Transcription submission failed: ${err}`);
         }
 
-        const transcriptData = await transcriptResponse.json();
-
-        return NextResponse.json({ id: transcriptData.id, status: transcriptData.status });
+        return NextResponse.json(await transcriptResponse.json());
 
     } catch (error) {
         console.error('[API] Transcription error:', error);

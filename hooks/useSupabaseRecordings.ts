@@ -19,19 +19,41 @@ export const useSupabaseRecordings = () => {
             if (error) throw error;
 
             if (data) {
-                const mappedRecordings: Recording[] = data.map((item: any) => ({
-                    id: item.id,
-                    name: item.name,
-                    blob: new Blob(), // Placeholder: We don't download blob immediately for list
-                    duration: item.duration,
-                    timestamp: new Date(item.created_at),
-                    transcript: item.transcript,
-                    audioUrl: item.audio_url // Extended type needed
-                }));
-                // Note: The blob is missing here.
-                // Approach: We keep the blob empty in the list. When playing, we might need to fetch it or just use the URL.
-                // BUT current app relies on `blob` for playback `URL.createObjectURL(recording.blob)`.
-                // We should update `playRecording` to support URL playback too.
+                const mappedRecordings: Recording[] = await Promise.all(
+                    data.map(async (item: any) => {
+                        const createdAt = new Date(item.created_at);
+                        const isRecent = Date.now() - createdAt.getTime() < 7 * 24 * 60 * 60 * 1000;
+
+                        if (isRecent) {
+                            const fileName = item.audio_url?.split('/').pop();
+                            if (fileName) {
+                                const { data: blobData } = await supabase.storage
+                                    .from('recordings')
+                                    .download(fileName);
+
+                                return {
+                                    id: item.id,
+                                    name: item.name,
+                                    blob: blobData || item.audio_url,
+                                    duration: item.duration,
+                                    timestamp: createdAt,
+                                    transcript: item.transcript,
+                                    audioUrl: item.audio_url
+                                };
+                            }
+                        }
+
+                        return {
+                            id: item.id,
+                            name: item.name,
+                            blob: item.audio_url,
+                            duration: item.duration,
+                            timestamp: createdAt,
+                            transcript: item.transcript,
+                            audioUrl: item.audio_url
+                        };
+                    })
+                );
 
                 setRecordings(mappedRecordings);
             }

@@ -5,14 +5,12 @@ import { useToast } from '@/hooks/use-toast';
 interface UseTranscriptionProps {
     language: string;
     useWhisper: boolean;
-    whisperApiKey: string;
     useAssemblyAI: boolean;
 }
 
 export const useTranscription = ({
     language,
     useWhisper,
-    whisperApiKey,
     useAssemblyAI
 }: UseTranscriptionProps) => {
     const [transcript, setTranscript] = useState('');
@@ -82,8 +80,8 @@ export const useTranscription = ({
         let result: TranscriptionResult;
 
         try {
-            if (useWhisper && whisperApiKey) {
-                result = await transcriptionService.transcribeWithWhisper(blob, whisperApiKey, language);
+            if (useWhisper) {
+                result = await transcriptionService.transcribeWithWhisper(blob, language);
             } else if (useAssemblyAI) {
                 // Use the new secure server-side proxy
                 const formData = new FormData();
@@ -148,7 +146,7 @@ export const useTranscription = ({
         } finally {
             setIsTranscribing(false);
         }
-    }, [useWhisper, whisperApiKey, useAssemblyAI, language, toast]);
+    }, [useWhisper, useAssemblyAI, language, toast]);
 
     const resetTranscript = useCallback(() => {
         setTranscript('');

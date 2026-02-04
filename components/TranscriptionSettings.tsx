@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Card } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Switch } from '@/components/ui/switch';
@@ -13,8 +12,6 @@ import { transcriptionService } from '@/lib/transcription';
 interface TranscriptionSettingsProps {
   language: string;
   setLanguage: (language: string) => void;
-  whisperApiKey: string;
-  setWhisperApiKey: (key: string) => void;
   useWhisper: boolean;
   setUseWhisper: (use: boolean) => void;
   isRecording: boolean;
@@ -23,13 +20,10 @@ interface TranscriptionSettingsProps {
 export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
   language,
   setLanguage,
-  whisperApiKey,
-  setWhisperApiKey,
   useWhisper,
   setUseWhisper,
   isRecording
 }) => {
-  const [showApiKey, setShowApiKey] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
   // State for browser support info - safe default for SSR
   const [browserSupport, setBrowserSupport] = useState<{ supported: boolean; message: string; details?: string }>({
@@ -46,11 +40,6 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
   }, []);
 
   const testWhisperConnection = async () => {
-    if (!whisperApiKey.trim()) {
-      setTestResult({ success: false, message: 'Please enter an API key first' });
-      return;
-    }
-
     setTestResult({ success: false, message: 'Testing connection...' });
 
     try {
@@ -66,7 +55,6 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
 
       const result = await transcriptionService.transcribeWithWhisper(
         blob,
-        whisperApiKey,
         language.split('-')[0]
       );
 
@@ -152,7 +140,7 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
                   <Badge variant="default">Premium</Badge>
                 </div>
                 <p className="text-sm text-muted-foreground">
-                  High-accuracy AI transcription (requires API key)
+                  High-accuracy AI transcription (server-side API key)
                 </p>
               </div>
               <Switch
@@ -167,48 +155,27 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
         {/* Whisper API Key */}
         {useWhisper && (
           <div className="space-y-3">
-            <Label htmlFor="api-key" className="flex items-center gap-2">
+            <Label className="flex items-center gap-2">
               <Key className="h-4 w-4" />
               OpenAI API Key
             </Label>
-            <div className="space-y-2">
-              <div className="flex gap-2">
-                <Input
-                  id="api-key"
-                  type={showApiKey ? "text" : "password"}
-                  placeholder="sk-..."
-                  value={whisperApiKey}
-                  onChange={(e) => setWhisperApiKey(e.target.value)}
-                  disabled={isRecording}
-                  className="flex-1"
-                />
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  disabled={isRecording}
-                >
-                  {showApiKey ? "Hide" : "Show"}
-                </Button>
-              </div>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={testWhisperConnection}
-                  disabled={isRecording || !whisperApiKey.trim()}
-                >
-                  Test Connection
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => window.open('https://platform.openai.com/api-keys', '_blank')}
-                  disabled={isRecording}
-                >
-                  Get API Key
-                </Button>
-              </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={testWhisperConnection}
+                disabled={isRecording}
+              >
+                Test Connection
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => window.open('https://platform.openai.com/api-keys', '_blank')}
+                disabled={isRecording}
+              >
+                Get API Key
+              </Button>
             </div>
 
             {testResult && (
@@ -223,8 +190,8 @@ export const TranscriptionSettings: React.FC<TranscriptionSettingsProps> = ({
             )}
 
             <p className="text-xs text-muted-foreground">
-              Your API key is stored locally and never sent to our servers.
-              Whisper API usage is charged by OpenAI based on audio duration.
+              Whisper uses the server-side API key configured for this app.
+              Usage is charged by OpenAI based on audio duration.
             </p>
           </div>
         )}
