@@ -2,8 +2,8 @@ import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
 const ACRCLOUD_HOST = 'identify-us-west-2.acrcloud.com';
-const ACCESS_KEY = process.env.ACRCLOUD_ACCESS_KEY!;
-const ACCESS_SECRET = process.env.ACRCLOUD_ACCESS_SECRET!;
+const ACCESS_KEY = process.env.ACRCLOUD_ACCESS_KEY || process.env.VITE_ACRCLOUD_ACCESS_KEY;
+const ACCESS_SECRET = process.env.ACRCLOUD_ACCESS_SECRET || process.env.VITE_ACRCLOUD_ACCESS_SECRET;
 
 export async function POST(request: Request) {
     try {
@@ -32,7 +32,8 @@ export async function POST(request: Request) {
 
         // Prepare form data for ACRCloud
         const acrFormData = new FormData();
-        acrFormData.append('sample', audioFile);
+        acrFormData.append('sample', audioFile, 'recording.webm');
+        acrFormData.append('sample_bytes', audioFile.size.toString());
         acrFormData.append('access_key', ACCESS_KEY);
         acrFormData.append('data_type', 'audio');
         acrFormData.append('signature_version', '1');
@@ -66,7 +67,7 @@ export async function POST(request: Request) {
                             ? `https://open.spotify.com/track/${song.external_metadata.spotify.track.id}`
                             : undefined,
                         youtube: song.external_metadata?.youtube?.vid
-                            ? `https://www.youtube.com/watch?v=${song.external_metadata.youtube.vid}`
+                            ? song.external_metadata.youtube.vid
                             : undefined
                     }
                 }
