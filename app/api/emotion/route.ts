@@ -43,8 +43,19 @@ async function analyzeAudioWithHume(audioBase64: string): Promise<any> {
         let aggregatedEmotions: any[] = [];
         let hasError = false;
 
-        socket.onopen = () => {
+        // Timeout to close socket if idle for too long (e.g. 10s after last message)
+        let idleTimeout: NodeJS.Timeout;
+        const resetIdleTimeout = () => {
+            if (idleTimeout) clearTimeout(idleTimeout);
+            idleTimeout = setTimeout(() => {
+                console.log('[Hume] Socket idle, closing...');
+                if (socket.readyState === WebSocket.OPEN) socket.close();
+            }, 10000); // 10 seconds idle timeout
+        };
+
+        socket.onopen = async () => {
             console.log('[Hume] Connected to WebSocket');
+            resetIdleTimeout();
 
             // 1. Send Configuration
             const config = {
@@ -54,58 +65,42 @@ async function analyzeAudioWithHume(audioBase64: string): Promise<any> {
             };
             socket.send(JSON.stringify(config));
 
-            // 2. Send Audio Data (Blob/Binary)
-            // Hume supports sending the blob directly or base64. 
-            // For WebSocket in Node, sending a Buffer is usually supported but depends on implementation.
-            // Let's send the binary data as a Blob or ArrayBuffer if possible.
-            // However, the 'ws' client in browser supports Blob. Native Node WebSocket supports Buffer/ArrayBuffer.
-            // But wait, we have the audioBase64 string. 
-            // Hume Protocol: Binary messages are treated as audio input. 
-            // JSON messages are treated as config/input with `data` field.
+            // 2. Stream Audio in Chunks
+            // Convert base64 back to buffer
+            const audioBuffer = Buffer.from(audioBase64, 'base64');
+            const CHUNK_SIZE = 16 * 1024; // 16KB chunks
 
-            // Let's send a JSON payload with base64 encoded audio for simplicity and compatibility
-            // Actually, typical usage: Send config, then send binary chunks.
-            const binaryMessage = Buffer.from(audioBase64, 'base64');
-            socket.send(binaryMessage);
+            for (let i = 0; i < audioBuffer.length; i += CHUNK_SIZE) {
+                if (socket.readyState !== WebSocket.OPEN) break;
 
-            // 3. Close the stream to indicate end of audio? 
-            // Hume doesn't strictly require a "close" packet for streaming if we just wait for results.
-            // But usually you keep it open. 
-            // Issue: How do we know when it's done? 
-            // Streaming API returns predictions as it processes.
-            // For a single file, we might get multiple frames. 
-            // We should wait for a bit or until we get at least one result?
-            // Actually, Hume Streaming doesn't explicitly send "Done". 
-            // We might need to listen for messages and close after a silence or timeout?
+                const chunk = audioBuffer.subarray(i, i + CHUNK_SIZE);
+                socket.send(chunk);
 
-            // Better approach for "File": Send the whole file, wait for results, then close after a timeout if no more results?
-            // Or rely on the fact that we sent one big chunk.
-            // Let's set a timeout to close if no messages received.
+                // Optional: very small delay to prevent flooding?
+                // await new Promise(r => setTimeout(r, 1));
+            }
+
+            console.log(`[Hume] Sent ${audioBuffer.length} bytes of audio data`);
+            // We keep the socket open to receive results.
+            // The idle timeout will close it when no more predictions come in.
         };
 
         socket.onmessage = (event) => {
+            resetIdleTimeout();
             try {
                 const response = JSON.parse(event.data.toString());
 
                 // Check for errors
                 if (response.error) {
-                    console.error('[Hume] API API Error:', response.error);
+                    console.error('[Hume] API Error:', response.error);
                     hasError = true;
-                    socket.close();
-                    reject(new Error(response.error));
-                    return;
+                    // We don't close immediately, some valid results might have arrived or might define the error better
                 }
 
                 // Check for prosody predictions
                 if (response.prosody && response.prosody.predictions) {
-                    // Collect predictions
                     aggregatedEmotions.push(...response.prosody.predictions);
                 }
-
-                // If we have predictions, and since we sent one file, we might be done?
-                // Depending on file size, we might get multiple chunks.
-                // But typically for short files < 10s, it might be one or two.
-
             } catch (e) {
                 console.error('[Hume] Parse error:', e);
             }
@@ -113,29 +108,37 @@ async function analyzeAudioWithHume(audioBase64: string): Promise<any> {
 
         socket.onerror = (error) => {
             console.error('[Hume] WebSocket Error:', error);
-            hasError = true;
-            reject(new Error('WebSocket connection failed'));
+            if (!aggregatedEmotions.length) {
+                hasError = true;
+                reject(new Error('WebSocket connection failed'));
+            }
         };
 
         socket.onclose = () => {
             console.log('[Hume] Connection closed');
-            if (!hasError) {
-                // Process aggregated results
+            if (idleTimeout) clearTimeout(idleTimeout);
+
+            if (!hasError && aggregatedEmotions.length > 0) {
+                resolve(processAggregatedEmotions(aggregatedEmotions));
+            } else if (hasError) {
+                // If we have no data, reject.
+                reject(new Error('Analysis failed or returned no data'));
+            } else {
                 if (aggregatedEmotions.length > 0) {
+                    // Fallback: if we have data but maybe hit a minor error or just closed clean
                     resolve(processAggregatedEmotions(aggregatedEmotions));
                 } else {
-                    reject(new Error('No emotion data received'));
+                    // Closed without results
+                    resolve({
+                        emotions: [],
+                        dominantEmotion: 'neutral',
+                        confidence: 0,
+                        provider: 'hume',
+                        error: 'No emotion data received from stream'
+                    });
                 }
             }
         };
-
-        // Timeout/Safety Close: Close after 5 seconds of "processing" 
-        // (This is a heuristic for this simplified implementation)
-        setTimeout(() => {
-            if (socket.readyState === WebSocket.OPEN) {
-                socket.close();
-            }
-        }, 5000);
     });
 }
 
