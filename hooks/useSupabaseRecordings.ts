@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Recording } from '@/types';
 import { useToast } from '@/hooks/use-toast';
+import { retryWithBackoff } from '@/lib/retry';
 
 export const useSupabaseRecordings = () => {
     const [recordings, setRecordings] = useState<Recording[]>([]);
@@ -66,7 +67,7 @@ export const useSupabaseRecordings = () => {
     }, [toast]);
 
     const saveRecording = async (recording: Recording) => {
-        try {
+        return await retryWithBackoff(async () => {
             // 1. Upload to Storage
             const fileName = `${Date.now()}_${recording.name.replace(/\s+/g, '_')}.webm`;
             const { data: uploadData, error: uploadError } = await supabase.storage
@@ -103,11 +104,7 @@ export const useSupabaseRecordings = () => {
 
             setRecordings(prev => [savedRecording, ...prev]);
             return savedRecording;
-
-        } catch (error) {
-            console.error('Error saving recording:', error);
-            throw error;
-        }
+        }, 3, 1000); // 3 attempts, 1 second base delay
     };
 
     const updateRecording = async (id: string, updates: Partial<Recording>) => {
@@ -137,6 +134,9 @@ export const useSupabaseRecordings = () => {
 
     const deleteRecording = async (id: string, audioUrl?: string) => {
         try {
+            // Get the recording to extract audio URL
+            const recording = recordings.find(r => r.id === id);
+
             // Delete from DB
             const { error: dbError } = await supabase
                 .from('recordings')
@@ -145,8 +145,27 @@ export const useSupabaseRecordings = () => {
 
             if (dbError) throw dbError;
 
-            // Delete from storage if we have the path (optional cleanup)
-            // Parsing path from URL is tricky without more logic, skipping for "Level 2b".
+            // Delete from storage if we have the audio URL
+            if (recording?.audioUrl) {
+                try {
+                    // Extract filename from URL
+                    // URL format: https://.../storage/v1/object/public/recordings/filename.webm
+                    const urlParts = recording.audioUrl.split('/');
+                    const filename = urlParts[urlParts.length - 1];
+
+                    const { error: storageError } = await supabase.storage
+                        .from('recordings')
+                        .remove([filename]);
+
+                    if (storageError) {
+                        console.warn('Storage file deletion failed:', storageError);
+                        // Don't throw - DB deletion succeeded, storage cleanup is optional
+                    }
+                } catch (storageErr) {
+                    console.warn('Error deleting storage file:', storageErr);
+                    // Continue - DB deletion succeeded
+                }
+            }
 
             setRecordings(prev => prev.filter(r => r.id !== id));
         } catch (error) {

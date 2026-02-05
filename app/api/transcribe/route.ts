@@ -5,6 +5,7 @@ const BASE_URL = 'https://api.assemblyai.com/v2';
 
 export async function POST(request: Request) {
     if (!ASSEMBLYAI_API_KEY) {
+        console.error('[API] AssemblyAI API Key missing');
         return NextResponse.json({ error: 'AssemblyAI API Key not configured' }, { status: 500 });
     }
 
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: 'No file provided' }, { status: 400 });
         }
 
-        console.log('[API] Uploading file to AssemblyAI...', file.size, file.type);
+        console.log('[API] Uploading file to AssemblyAI...', { size: file.size, type: file.type });
 
         // 1. Upload
         const uploadResponse = await fetch(`${BASE_URL}/upload`, {
@@ -27,7 +28,8 @@ export async function POST(request: Request) {
 
         if (!uploadResponse.ok) {
             const err = await uploadResponse.text();
-            throw new Error(`Upload failed: ${err}`);
+            console.error('[API] AssemblyAI Upload failed:', err);
+            return NextResponse.json({ error: `Upload failed: ${err}` }, { status: uploadResponse.status });
         }
 
         const uploadData = await uploadResponse.json();
@@ -43,21 +45,22 @@ export async function POST(request: Request) {
             body: JSON.stringify({
                 audio_url: audioUrl,
                 speaker_labels: true,
-                word_boost: [],
                 language_detection: true
             })
         });
 
         if (!transcriptResponse.ok) {
             const err = await transcriptResponse.text();
-            throw new Error(`Transcription submission failed: ${err}`);
+            console.error('[API] AssemblyAI Submission failed:', err);
+            return NextResponse.json({ error: `Transcription submission failed: ${err}` }, { status: transcriptResponse.status });
         }
 
-        return NextResponse.json(await transcriptResponse.json());
+        const transcriptData = await transcriptResponse.json();
+        return NextResponse.json(transcriptData);
 
     } catch (error) {
         console.error('[API] Transcription error:', error);
-        return NextResponse.json({ error: String(error) }, { status: 500 });
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }
 
@@ -79,13 +82,16 @@ export async function GET(request: Request) {
         });
 
         if (!response.ok) {
-            throw new Error('Failed to fetch transcript status');
+            const err = await response.text();
+            console.error('[API] AssemblyAI Polling failed:', err);
+            throw new Error(`Failed to fetch transcript status: ${err}`);
         }
 
         const data = await response.json();
         return NextResponse.json(data);
 
     } catch (error) {
-        return NextResponse.json({ error: String(error) }, { status: 500 });
+        console.error('[API] Polling error:', error);
+        return NextResponse.json({ error: error instanceof Error ? error.message : String(error) }, { status: 500 });
     }
 }

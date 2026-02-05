@@ -11,6 +11,16 @@ import { LanguageSelector } from './LanguageSelector';
 import { Recording } from '@/types'; // Import the shared Recording type
 import { Input } from '@/components/ui/input'; // Import the Input component
 import { useTranscription } from '@/hooks/useTranscription';
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from '@/components/ui/alert-dialog';
 
 // Add this interface to your component file to make TypeScript happy with the Web Speech API
 declare global {
@@ -25,9 +35,14 @@ declare global {
 // Props interface to receive state from App.tsx
 import { useRecordings } from '@/components/Providers';
 
+// Recording duration limits
+const MAX_RECORDING_DURATION = 7200; // 2 hours in seconds
+const WARNING_THRESHOLD = 7020; // 1 hour 57 minutes (3 minutes before limit)
+
 export const VoiceRecorder: React.FC = () => {
   const { recordings, saveRecording, updateRecording, deleteRecording } = useRecordings();
   const [isRecording, setIsRecording] = useState(false);
+  const [isPaused, setIsPaused] = useState(false);
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentRecording, setCurrentRecording] = useState<Recording | null>(null);
   const [recordingTime, setRecordingTime] = useState(0);
@@ -40,6 +55,19 @@ export const VoiceRecorder: React.FC = () => {
   const [useWhisper, setUseWhisper] = useState(false);
   const [useAssemblyAI, setUseAssemblyAI] = useState(true);
   const [debugInfo, setDebugInfo] = useState('');
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [recordingToDelete, setRecordingToDelete] = useState<string | null>(null);
+
+  // Recording quality
+  type RecordingQuality = 'low' | 'medium' | 'high';
+  const [recordingQuality, setRecordingQuality] = useState<RecordingQuality>('high');
+
+  const QUALITY_PRESETS = {
+    low: { sampleRate: 16000, label: 'Low (16kHz)' },
+    medium: { sampleRate: 24000, label: 'Medium (24kHz)' },
+    high: { sampleRate: 48000, label: 'High (48kHz)' }
+  };
+
 
   // ... (Hook usage remains same)
   const {
@@ -47,7 +75,10 @@ export const VoiceRecorder: React.FC = () => {
     setTranscript,
     resetTranscript,
     isTranscribing,
+    transcriptionProgress,
     error: transcriptionError,
+    status: transcriptionStatus,
+    browserInfo,
     startRealTime,
     stopRealTime,
     transcribeFile
@@ -61,6 +92,7 @@ export const VoiceRecorder: React.FC = () => {
   const audioRef = useRef<HTMLAudioElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const analyserRef = useRef<AnalyserNode | null>(null);
+  const audioContextRef = useRef<AudioContext | null>(null);
   const animationFrameRef = useRef<number | null>(null);
   const recordingIntervalRef = useRef<number | null>(null);
   const recordingTimeRef = useRef(0);
@@ -73,10 +105,12 @@ export const VoiceRecorder: React.FC = () => {
     const savedUseWhisper = localStorage.getItem('useWhisper') === 'true';
     const savedUseAssemblyAI = localStorage.getItem('useAssemblyAI') !== 'false';
     const savedLanguage = localStorage.getItem('transcriptionLanguage') || 'en-US';
+    const savedQuality = (localStorage.getItem('recordingQuality') as RecordingQuality) || 'high';
 
     if (savedUseWhisper) setUseWhisper(savedUseWhisper);
     setUseAssemblyAI(savedUseAssemblyAI);
     setLanguage(savedLanguage);
+    setRecordingQuality(savedQuality);
 
     return () => {
       if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
@@ -90,7 +124,8 @@ export const VoiceRecorder: React.FC = () => {
     localStorage.setItem('useWhisper', useWhisper.toString());
     localStorage.setItem('useAssemblyAI', useAssemblyAI.toString());
     localStorage.setItem('transcriptionLanguage', language);
-  }, [useWhisper, useAssemblyAI, language]);
+    localStorage.setItem('recordingQuality', recordingQuality);
+  }, [useWhisper, useAssemblyAI, language, recordingQuality]);
 
   const startRecording = async () => {
     resetTranscript();
@@ -107,18 +142,26 @@ export const VoiceRecorder: React.FC = () => {
           echoCancellation: true,
           noiseSuppression: false, // Disabling aggressive suppression often improves voice clarity
           autoGainControl: true,
-          sampleRate: 48000, // CD quality
+          sampleRate: QUALITY_PRESETS[recordingQuality].sampleRate,
           channelCount: 1
         }
       });
       streamRef.current = stream;
 
       const audioContext = new AudioContext();
+      audioContextRef.current = audioContext;
       const analyser = audioContext.createAnalyser();
       const source = audioContext.createMediaStreamSource(stream);
       source.connect(analyser);
       analyser.fftSize = 256;
       analyserRef.current = analyser;
+
+      // Cancel any existing animation frame before starting new one
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
       updateAudioLevels();
 
       const mediaRecorder = new MediaRecorder(stream, { mimeType: 'audio/webm;codecs=opus' });
@@ -193,10 +236,15 @@ export const VoiceRecorder: React.FC = () => {
 
         } catch (err) {
           setIsSaving(false);
-          console.error(err);
+          console.error('Save error after retries:', err);
+
+          const errorMessage = err instanceof Error
+            ? err.message
+            : "Could not save to Supabase.";
+
           toast({
             title: "Save Failed",
-            description: "Could not save to Supabase.",
+            description: `Failed after 3 retry attempts. ${errorMessage}`,
             variant: "destructive"
           });
         }
@@ -212,14 +260,83 @@ export const VoiceRecorder: React.FC = () => {
         setRecordingTime(prev => {
           const newTime = prev + 1;
           recordingTimeRef.current = newTime;
+
+          // Check for warning threshold (3 minutes before limit)
+          if (newTime === WARNING_THRESHOLD) {
+            toast({
+              title: "Recording Limit Warning",
+              description: "You have 3 minutes remaining before the 2-hour limit.",
+              variant: "default"
+            });
+          }
+
+          // Auto-stop at max duration
+          if (newTime >= MAX_RECORDING_DURATION) {
+            stopRecording();
+            toast({
+              title: "Recording Stopped",
+              description: "Maximum recording duration (2 hours) reached.",
+              variant: "default"
+            });
+          }
+
           return newTime;
         });
       }, 1000);
 
-    } catch (error) {
+    } catch (error: any) {
+      let errorTitle = "Recording Error";
+      let errorDescription = "Could not access microphone.";
+
+      // Enhanced error messages based on error type
+      if (error instanceof DOMException) {
+        switch (error.name) {
+          case 'NotAllowedError':
+          case 'PermissionDeniedError':
+            errorTitle = "Microphone Permission Denied";
+            errorDescription = "Please allow microphone access in your browser settings and refresh the page.";
+            break;
+
+          case 'NotFoundError':
+          case 'DevicesNotFoundError':
+            errorTitle = "Microphone Not Found";
+            errorDescription = "No microphone detected. Please connect a microphone and try again.";
+            break;
+
+          case 'NotReadableError':
+          case 'TrackStartError':
+            errorTitle = "Microphone In Use";
+            errorDescription = "Your microphone is being used by another application. Please close other apps and try again.";
+            break;
+
+          case 'OverconstrainedError':
+          case 'ConstraintNotSatisfiedError':
+            errorTitle = "Microphone Settings Error";
+            errorDescription = "Your microphone doesn't support the requested settings. Try changing the quality setting.";
+            break;
+
+          case 'NotSupportedError':
+            errorTitle = "Browser Not Supported";
+            errorDescription = "Your browser doesn't support audio recording. Please use Chrome, Edge, or Safari.";
+            break;
+
+          case 'AbortError':
+            errorTitle = "Recording Aborted";
+            errorDescription = "The recording was interrupted. Please try again.";
+            break;
+
+          default:
+            errorDescription = `Microphone error: ${error.message || error.name}`;
+        }
+      } else if (error instanceof Error) {
+        errorDescription = error.message;
+      }
+
+      console.error('Recording error:', error);
+
       toast({
-        title: "Recording Error",
-        description: "Could not access microphone.",
+        title: errorTitle,
+        description: errorDescription,
         variant: "destructive"
       });
     }
@@ -230,10 +347,92 @@ export const VoiceRecorder: React.FC = () => {
       mediaRecorderRef.current.stop();
       stopRealTime();
       setIsRecording(false);
+      setIsPaused(false); // Reset pause state
       streamRef.current?.getTracks().forEach(track => track.stop());
+
+      // Clean up AudioContext to prevent memory leaks
+      if (audioContextRef.current) {
+        audioContextRef.current.close();
+        audioContextRef.current = null;
+      }
+      analyserRef.current = null;
+
       if (recordingIntervalRef.current) clearInterval(recordingIntervalRef.current);
-      if (animationFrameRef.current) cancelAnimationFrame(animationFrameRef.current);
+      // Cancel animation frame
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+      // Reset audio levels
       setAudioLevels(new Array(40).fill(0));
+    }
+  };
+
+  const pauseRecording = () => {
+    if (mediaRecorderRef.current && isRecording && !isPaused) {
+      mediaRecorderRef.current.pause();
+      setIsPaused(true);
+
+      // Pause timer
+      if (recordingIntervalRef.current) {
+        clearInterval(recordingIntervalRef.current);
+        recordingIntervalRef.current = null;
+      }
+
+      // Pause audio level animation
+      if (animationFrameRef.current) {
+        cancelAnimationFrame(animationFrameRef.current);
+        animationFrameRef.current = null;
+      }
+
+      toast({
+        title: "Recording Paused",
+        description: "Click Resume to continue recording."
+      });
+    }
+  };
+
+  const resumeRecording = () => {
+    if (mediaRecorderRef.current && isRecording && isPaused) {
+      mediaRecorderRef.current.resume();
+      setIsPaused(false);
+
+      // Resume timer with duration limit checks
+      recordingIntervalRef.current = window.setInterval(() => {
+        setRecordingTime(prev => {
+          const newTime = prev + 1;
+          recordingTimeRef.current = newTime;
+
+          // Check for warning threshold (3 minutes before limit)
+          if (newTime === WARNING_THRESHOLD) {
+            toast({
+              title: "Recording Limit Warning",
+              description: "You have 3 minutes remaining before the 2-hour limit.",
+              variant: "default"
+            });
+          }
+
+          // Auto-stop at max duration
+          if (newTime >= MAX_RECORDING_DURATION) {
+            stopRecording();
+            toast({
+              title: "Recording Stopped",
+              description: "Maximum recording duration (2 hours) reached.",
+              variant: "default"
+            });
+          }
+
+          return newTime;
+        });
+      }, 1000);
+
+      // Resume audio level animation
+      updateAudioLevels();
+
+      toast({
+        title: "Recording Resumed",
+        description: "Recording in progress."
+      });
     }
   };
 
@@ -344,7 +543,24 @@ export const VoiceRecorder: React.FC = () => {
                 <Badge className="bg-white/10 text-slate-100 hover:bg-white/15" variant="secondary">Live waveform</Badge>
                 <Badge className="bg-white/10 text-slate-100 hover:bg-white/15" variant="secondary">Transcription-ready</Badge>
                 <Badge className="bg-white/10 text-slate-100 hover:bg-white/15" variant="secondary">Cloud saved</Badge>
+                {transcriptionStatus === 'listening' && (
+                  <Badge className="bg-green-500/20 text-green-300 hover:bg-green-500/30 animate-pulse" variant="secondary">
+                    ● Listening
+                  </Badge>
+                )}
+                {transcriptionStatus === 'max-retries' && (
+                  <Badge className="bg-red-500/20 text-red-300 hover:bg-red-500/30" variant="secondary">
+                    Transcription Stopped
+                  </Badge>
+                )}
               </div>
+              {browserInfo && !browserInfo.supported && (
+                <div className="p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                  <p className="text-sm text-yellow-200">
+                    <strong>⚠️ Browser Not Supported:</strong> {browserInfo.message}
+                  </p>
+                </div>
+              )}
               <div className="grid gap-3 sm:grid-cols-3">
                 <div className="neo-panel rounded-2xl px-4 py-3">
                   <p className="text-xs uppercase tracking-[0.2em] text-slate-400">Mode</p>
@@ -384,7 +600,30 @@ export const VoiceRecorder: React.FC = () => {
                 />
               </div>
               <div className="flex flex-wrap justify-center items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <label className="text-sm text-slate-300">Quality:</label>
+                  <select
+                    value={recordingQuality}
+                    onChange={(e) => setRecordingQuality(e.target.value as RecordingQuality)}
+                    disabled={isRecording}
+                    className="bg-white/5 text-slate-100 border-white/15 rounded-md px-3 py-1 text-sm disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <option value="low">{QUALITY_PRESETS.low.label}</option>
+                    <option value="medium">{QUALITY_PRESETS.medium.label}</option>
+                    <option value="high">{QUALITY_PRESETS.high.label}</option>
+                  </select>
+                </div>
                 <LanguageSelector language={language} setLanguage={setLanguage} isRecording={isRecording} />
+                {isRecording && (
+                  <Button
+                    size="lg"
+                    variant="outline"
+                    className="h-16 w-16 rounded-full border-white/20 hover:bg-white/10"
+                    onClick={isPaused ? resumeRecording : pauseRecording}
+                  >
+                    {isPaused ? <Play className="h-6 w-6" /> : <Pause className="h-6 w-6" />}
+                  </Button>
+                )}
                 <Button
                   size="lg"
                   variant={isRecording ? "destructive" : "default"}
@@ -450,7 +689,17 @@ export const VoiceRecorder: React.FC = () => {
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="ghost" onClick={() => downloadRecording(recording)}><Download className="h-4 w-4" /></Button>
-                      <Button size="sm" variant="ghost" onClick={() => handleDelete(recording.id)}><Trash2 className="h-4 w-4" /></Button>
+                      <Button
+                        size="sm"
+                        variant="ghost"
+                        onClick={() => {
+                          setRecordingToDelete(recording.id);
+                          setDeleteDialogOpen(true);
+                        }}
+                        className="text-destructive hover:text-destructive/90"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
                     </div>
                   </div>
                 ))}
@@ -463,6 +712,42 @@ export const VoiceRecorder: React.FC = () => {
           </Card>
         </div>
       </div>
-    </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Recording?</AlertDialogTitle>
+            <AlertDialogDescription>
+              This action cannot be undone. This will permanently delete the recording
+              and remove it from our servers.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel onClick={() => setRecordingToDelete(null)}>
+              Cancel
+            </AlertDialogCancel>
+            <AlertDialogAction
+              onClick={() => {
+                if (recordingToDelete) {
+                  deleteRecording(recordingToDelete);
+                  setRecordingToDelete(null);
+                  setDeleteDialogOpen(false);
+                  toast({
+                    title: "Recording Deleted",
+                    description: "The recording has been permanently deleted."
+                  });
+                }
+              }}
+              className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
+            >
+              Delete
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
+    </div >
   );
 };
+
+

@@ -29,18 +29,31 @@ class TranscriptionService {
   private checkBrowserSupport(): boolean {
     if (typeof window === 'undefined') return false;
     const hasSupport = !!(window.SpeechRecognition || window.webkitSpeechRecognition);
-    console.log('Browser speech recognition support:', hasSupport);
+
     if (!hasSupport) {
-      console.warn('Speech recognition not supported. Available in:', {
+      const userAgent = navigator.userAgent;
+      let browserName = 'Unknown';
+      if (userAgent.includes('Firefox')) browserName = 'Firefox';
+      else if (userAgent.includes('Safari') && !userAgent.includes('Chrome')) browserName = 'Safari';
+      else if (userAgent.includes('Chrome') && !userAgent.includes('Edg')) browserName = 'Chrome';
+      else if (userAgent.includes('Edg')) browserName = 'Edge';
+
+      console.warn(`Speech recognition not supported in ${browserName}. Available in:`, {
         SpeechRecognition: !!window.SpeechRecognition,
         webkitSpeechRecognition: !!window.webkitSpeechRecognition,
-        userAgent: navigator.userAgent
+        userAgent: navigator.userAgent,
+        browserName
       });
+    } else {
+      console.log('Browser speech recognition support: enabled');
     }
     return hasSupport;
   }
 
   private shouldRestart: boolean = false;
+  private restartCount: number = 0;
+  private readonly MAX_RESTARTS = 5;
+  private readonly BASE_RETRY_DELAY = 1000; // 1 second
 
   /**
    * Real-time transcription using Web Speech API
@@ -51,9 +64,9 @@ class TranscriptionService {
     onError: (error: string) => void
   ): Promise<boolean> {
     if (!this.isSupported) {
-      const errorMsg = 'Speech recognition not supported in this browser. Please use Chrome, Edge, or Safari.';
-      console.error(errorMsg);
-      onError(errorMsg);
+      const supportInfo = this.getBrowserSupportInfo();
+      console.error(supportInfo.message);
+      onError(supportInfo.message);
       return false;
     }
 
@@ -78,6 +91,7 @@ class TranscriptionService {
 
       this.recognition.onstart = () => {
         console.log('Speech recognition started');
+        this.restartCount = 0; // Reset counter on successful start
       };
 
       this.recognition.onresult = (event: any) => {
@@ -130,14 +144,25 @@ class TranscriptionService {
 
       this.recognition.onend = () => {
         console.log('Speech recognition ended');
-        if (this.shouldRestart) {
-          console.log('Auto-restarting speech recognition...');
-          try {
-            this.recognition.start();
-          } catch (e) {
-            console.error('Failed to restart speech recognition', e);
-            this.shouldRestart = false; // Give up if immediate restart fails
-          }
+        if (this.shouldRestart && this.restartCount < this.MAX_RESTARTS) {
+          this.restartCount++;
+          const delay = this.BASE_RETRY_DELAY * Math.pow(2, this.restartCount - 1);
+
+          console.log(`Auto-restarting speech recognition (attempt ${this.restartCount}/${this.MAX_RESTARTS}) after ${delay}ms...`);
+
+          setTimeout(() => {
+            try {
+              this.recognition.start();
+            } catch (e) {
+              console.error('Failed to restart speech recognition', e);
+              this.shouldRestart = false;
+              onError(`Failed to restart after ${this.restartCount} attempts. Please try again.`);
+            }
+          }, delay);
+        } else if (this.restartCount >= this.MAX_RESTARTS) {
+          console.warn('Max restart attempts reached');
+          this.shouldRestart = false;
+          onError(`Transcription stopped after ${this.MAX_RESTARTS} restart attempts. Please restart manually.`);
         }
       };
 
@@ -155,6 +180,7 @@ class TranscriptionService {
    */
   stopRealTimeTranscription(): void {
     this.shouldRestart = false;
+    this.restartCount = 0; // Reset counter
     if (this.recognition) {
       this.recognition.stop();
       this.recognition = null;
@@ -235,6 +261,14 @@ class TranscriptionService {
   /**
    * Transcribe using AssemblyAI API (high accuracy)
    */
+  async transcribeWithAssemblyAI(
+    audioBlob: Blob
+  ): Promise<TranscriptionResult> {
+    // Dynamically import to avoid server-side issues if this file is imported there, 
+    // though this method should primarily run on client.
+    const { transcribeWithAssemblyAI } = await import('./assemblyai');
+    return transcribeWithAssemblyAI(audioBlob);
+  }
 
 
   /**
@@ -244,35 +278,8 @@ class TranscriptionService {
     audioBlob: Blob,
     language: string = 'en'
   ): Promise<TranscriptionResult> {
-    try {
-      const formData = new FormData();
-      formData.append('file', audioBlob, 'recording.webm');
-      formData.append('language', language);
-
-      const response = await fetch('/api/whisper', {
-        method: 'POST',
-        body: formData,
-      });
-
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.error || errorData.message || `HTTP ${response.status}`);
-      }
-
-      const result = await response.json();
-
-      return {
-        transcript: result.text || '',
-        method: 'whisper',
-        confidence: 0.95 // Whisper typically has high accuracy
-      };
-    } catch (error) {
-      return {
-        transcript: '',
-        method: 'whisper',
-        error: `Whisper API error: ${error}`
-      };
-    }
+    const { transcribeWithWhisper } = await import('./whisper');
+    return transcribeWithWhisper(audioBlob, language);
   }
 
   /**

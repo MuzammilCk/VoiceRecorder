@@ -26,6 +26,21 @@ export const WaveformPlayer: React.FC<WaveformPlayerProps> = ({
     const [isLoading, setIsLoading] = useState(true);
     const [duration, setDuration] = useState(0);
     const [currentTime, setCurrentTime] = useState(0);
+    const isMountedRef = useRef(true);
+
+    useEffect(() => {
+        isMountedRef.current = true;
+        return () => {
+            isMountedRef.current = false;
+        };
+    }, []);
+
+    // Use a ref for the callback to prevent effect re-triggering when the parent passes a new function
+    const onTimeUpdateRef = useRef(onTimeUpdate);
+
+    useEffect(() => {
+        onTimeUpdateRef.current = onTimeUpdate;
+    }, [onTimeUpdate]);
 
     useEffect(() => {
         if (!containerRef.current) return;
@@ -43,7 +58,15 @@ export const WaveformPlayer: React.FC<WaveformPlayerProps> = ({
             normalize: true,
         });
 
-        wavesurfer.current.load(url);
+        // Load audio and handle potential abort errors during rapid unmounts
+        wavesurfer.current.load(url).catch((err) => {
+            // Ignore abort errors which happen during cleanup
+            if (err.name === 'AbortError' || err.message?.includes('aborted')) {
+                return;
+            }
+            console.error('WaveSurfer load error:', err);
+            setIsLoading(false);
+        });
 
         wavesurfer.current.on('ready', () => {
             setIsLoading(false);
@@ -54,23 +77,29 @@ export const WaveformPlayer: React.FC<WaveformPlayerProps> = ({
         wavesurfer.current.on('pause', () => setIsPlaying(false));
         wavesurfer.current.on('timeupdate', (time) => {
             setCurrentTime(time);
-            if (onTimeUpdate) onTimeUpdate(time);
+            if (onTimeUpdateRef.current) onTimeUpdateRef.current(time);
         });
 
         wavesurfer.current.on('interaction', (time) => {
             setCurrentTime(time);
-            if (onTimeUpdate) onTimeUpdate(time);
+            if (onTimeUpdateRef.current) onTimeUpdateRef.current(time);
         });
 
         return () => {
             if (wavesurfer.current) {
-                wavesurfer.current.destroy();
+                try {
+                    wavesurfer.current.destroy();
+                } catch (e) {
+                    console.debug("WaveSurfer cleanup error:", e);
+                }
+                wavesurfer.current = null;
             }
+
             if (typeof audioUrl !== 'string') {
                 URL.revokeObjectURL(url);
             }
         };
-    }, [audioUrl, height, waveColor, progressColor, onTimeUpdate]);
+    }, [audioUrl, height, waveColor, progressColor]); // Removed onTimeUpdate from dependencies
 
     const togglePlay = () => {
         if (wavesurfer.current) {
