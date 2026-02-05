@@ -41,12 +41,7 @@ export const ToneAnalyzer: React.FC<ToneAnalyzerProps> = ({ recordings }) => {
   const { toast } = useToast();
 
   // Initialize Hume AI service
-  React.useEffect(() => {
-    const envApiKey = process.env.NEXT_PUBLIC_HUME_API_KEY || '';
-    if (envApiKey) {
-      emotionAnalysisService.setHumeApiKey(envApiKey);
-    }
-  }, []);
+  // API keys are now handled server-side, so no client-side initialization is needed.
 
   const handleFileUpload = useCallback((event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
